@@ -1,26 +1,258 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Sprout design tokens.
+ * Base palette carried over from the original v0 build (mutualconnections.vercel.app).
+ * Changes are noted inline; every text pairing was checked for WCAG 2.2 AA (>= 4.5:1).
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --background: #f6f4ef;
+  --foreground: #141d16;
+  --card: #fefdfa;
+  --card-foreground: #141d16;
+  --primary: #137d41; /* growth green, 4.7:1 on background */
+  --primary-foreground: #f7faf2;
+  --secondary: #ece8d9;
+  --secondary-foreground: #1e2d21;
+  --muted: #ebe8dd;
+  --muted-foreground: #5a6258; /* darkened from #636c61 so it passes on --muted too */
+  --accent: #e5e75b;
+  --accent-foreground: #1f2f0b;
+  --border: #dedbd0;
+  --input: #cfcbbd; /* stronger than border: inputs are UI components (3:1) */
+  --ring: #137d41;
+
+  /* Semantic, added for Sprout */
+  --positive: #137d41;
+  --positive-soft: #dff0e3;
+  --negative: #b42b2f; /* darkened from #d73337 (4.3:1) to 5.7:1 */
+  --negative-soft: #f8e1df;
+  --warning: #8a5a00; /* calm amber for "heads up", never red */
+  --warning-soft: #fbefd5;
+  --info: #1f6f8b;
+  --info-soft: #dceef4;
+  --practice: #5b3fa0; /* practice/simulated badge */
+  --practice-soft: #ece6f8;
+
+  --chart-1: #137d41;
+  --chart-2: #c9cb2f;
+  --chart-3: #ed9658;
+  --chart-4: #2c94b0;
+  --chart-5: #bd413f;
+
+  --shadow-card: 0 1px 2px rgb(20 29 22 / 0.04), 0 4px 16px rgb(20 29 22 / 0.05);
+  --shadow-raised: 0 8px 32px rgb(20 29 22 / 0.14);
+  --frame: #e9e6dc;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #0f1610;
+  --foreground: #f2f2eb;
+  --card: #18211a;
+  --card-foreground: #f2f2eb;
+  --primary: #4cb86a;
+  --primary-foreground: #07150a;
+  --secondary: #273129;
+  --secondary-foreground: #f2f2eb;
+  --muted: #222c24;
+  --muted-foreground: #a9ad9f;
+  --accent: #dfe044;
+  --accent-foreground: #182704;
+  --border: #ffffff1f;
+  --input: #ffffff40;
+  --ring: #4cb86a;
+
+  --positive: #5cc77a;
+  --positive-soft: #183522;
+  --negative: #ff8a80;
+  --negative-soft: #3a1b1a;
+  --warning: #f0b956;
+  --warning-soft: #33280f;
+  --info: #79c8e2;
+  --info-soft: #11303a;
+  --practice: #c4b0f5;
+  --practice-soft: #2a2140;
+
+  --chart-1: #4cb86a;
+  --chart-2: #dfe044;
+  --chart-3: #f7a062;
+  --chart-4: #43a6c3;
+  --chart-5: #d55753;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-raised: 0 8px 32px rgb(0 0 0 / 0.5);
+  --frame: #070b08;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-negative: var(--negative);
+  --color-negative-soft: var(--negative-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-practice: var(--practice);
+  --color-practice-soft: var(--practice-soft);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-frame: var(--frame);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), var(--font-inter), ui-sans-serif, sans-serif;
+
+  /* Five-step type scale */
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.125rem;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.375rem;
+  --text-title: 1.125rem;
+  --text-title--line-height: 1.5rem;
+  --text-headline: 1.5rem;
+  --text-headline--line-height: 1.875rem;
+  --text-display: 2.25rem;
+  --text-display--line-height: 2.5rem;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-fade-in: fade-in 200ms var(--ease-out-soft) both;
+  --animate-rise: rise 250ms var(--ease-out-soft) both;
+  --animate-sheet-in: sheet-in 250ms var(--ease-out-soft) both;
+  --animate-sheet-out: sheet-out 180ms ease-in both;
+  --animate-overlay-in: fade-in 200ms ease-out both;
+  --animate-overlay-out: fade-out 150ms ease-in both;
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --animate-pop: pop 400ms var(--ease-out-soft) both;
+  --animate-grow: grow 900ms var(--ease-out-soft) both;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes sheet-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+@keyframes shimmer {
+  0% { opacity: 0.55; }
+  50% { opacity: 1; }
+  100% { opacity: 0.55; }
+}
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes grow {
+  0% { transform: scaleY(0); }
+  100% { transform: scaleY(1); }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  button, [role="button"], a {
+    touch-action: manipulation;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  /* Tabular numerals so money columns line up and don't jitter while updating. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+}
+
+/* Keep toasts inside the phone frame on desktop. */
+[data-sonner-toaster].sprout-toaster {
+  position: absolute !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
