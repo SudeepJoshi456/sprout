@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Sprout — Money that grows with you",
+    name: "Sprout: Money that grows with you",
     short_name: "Sprout",
     description: "Start from zero: sign up without an SSN, move money with Interledger, and practice investing risk-free.",
     start_url: "/",

@@ -280,7 +280,7 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
           {note.trim() && <Row label={t("move.note")} value={note.trim()} />}
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <dt className="text-body text-muted-foreground">{t("move.via")}</dt>
-            <dd>{q.mode === "interledger" ? <Badge tone="info">{t("move.viaInterledger")}</Badge> : <SimulatedBadge label={quote.fellBack ? t("move.viaFallback") : t("move.viaMock")} />}</dd>
+            <dd>{q.mode === "interledger" ? <Badge tone="info">{t("move.viaInterledger")}</Badge> : <SimulatedBadge label={quote.fellBack ? t("move.viaFallback") : modes.payments === "interledger" ? t("move.viaPractice") : t("move.viaMock")} />}</dd>
           </div>
         </dl>
         <p className="text-center text-caption text-muted-foreground">{t("move.quoteExpires")}</p>
@@ -346,7 +346,7 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
             {t("move.shareReceipt")}
           </Button>
         </div>
-        <p className="text-center text-caption text-muted-foreground">{formatDate(tr.createdAt)} · {modes.payments === "interledger" ? t("move.liveBadge") : t("app.simulated")}</p>
+        <p className="text-center text-caption text-muted-foreground">{formatDate(tr.createdAt)} · {tr.mode === "interledger" ? t("move.liveBadge") : t("app.simulated")}</p>
       </div>
     );
   }

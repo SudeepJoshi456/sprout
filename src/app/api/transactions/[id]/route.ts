@@ -3,7 +3,7 @@ import { EDITABLE_CATEGORIES } from "@/data/categories";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 import type { CategoryId } from "@/lib/types";
 
-/** PATCH /api/transactions/:id — recategorize a transaction. */
+/** PATCH /api/transactions/:id: recategorize a transaction. */
 export async function PATCH(req: Request, ctx: RouteContext<"/api/transactions/[id]">) {
   return withSession(req, async ({ user }) => {
     const { id } = await ctx.params;

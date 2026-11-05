@@ -16,7 +16,7 @@ const POLL_MS = 6000;
  * each one. Pauses while the tab is hidden.
  */
 export function IncomingWatcher() {
-  const live = useClientState()?.modes.payments === "interledger";
+  const live = useClientState()?.modes.receiving === "interledger";
 
   useEffect(() => {
     if (!live) return;

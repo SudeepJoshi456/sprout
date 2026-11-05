@@ -371,7 +371,7 @@ export const LESSON_SOURCES: Record<string, Array<{ label: string; url: string }
     { label: "CFPB: Money transfer FAQs", url: "https://www.consumerfinance.gov/consumer-tools/money-transfers-revisions-sept-2023/money-transfer-frequently-asked-questions/" },
   ],
   "student-taxes": [
-    { label: "IRS: Exempt individual — who is a student", url: "https://www.irs.gov/individuals/international-taxpayers/exempt-individual-who-is-a-student" },
+    { label: "IRS: Exempt individual, who is a student", url: "https://www.irs.gov/individuals/international-taxpayers/exempt-individual-who-is-a-student" },
     { label: "IRS: About Form 8843", url: "https://www.irs.gov/forms-pubs/about-form-8843" },
   ],
   "credit-reports": [

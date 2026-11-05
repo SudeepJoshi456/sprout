@@ -3,7 +3,7 @@ import { clientState, errorResponse, getSid, parseBody } from "@/lib/server/http
 import { loadSession, restoreSession } from "@/lib/server/store";
 
 /**
- * POST /api/session/restore — rehydrates a session from the client's snapshot.
+ * POST /api/session/restore: rehydrates a session from the client's snapshot.
  * Needed on serverless hosts where a new instance doesn't have the session file.
  * The snapshot only contains this browser's own fake demo data.
  */

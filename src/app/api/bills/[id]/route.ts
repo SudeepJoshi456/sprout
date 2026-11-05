@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 
-/** PATCH /api/bills/:id — change how much is set aside for a bill. */
+/** PATCH /api/bills/:id: change how much is set aside for a bill. */
 export async function PATCH(req: Request, ctx: RouteContext<"/api/bills/[id]">) {
   return withSession(req, async ({ user }) => {
     const { id } = await ctx.params;

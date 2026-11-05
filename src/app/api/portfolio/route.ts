@@ -7,7 +7,7 @@ import type { ChartRange } from "@/lib/types";
 
 const RANGES: ChartRange[] = ["1D", "1W", "1M", "1Y"];
 
-/** GET /api/portfolio?range=1M — valuation, chart, diversification, challenges, graduate progress. */
+/** GET /api/portfolio?range=1M: valuation, chart, diversification, challenges, graduate progress. */
 export async function GET(req: NextRequest) {
   return withSession(
     req,

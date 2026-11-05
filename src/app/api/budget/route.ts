@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 
-/** PATCH /api/budget — switch monthly/semester view or change a category limit. */
+/** PATCH /api/budget: switch monthly/semester view or change a category limit. */
 const schema = z.object({
   period: z.enum(["monthly", "semester"]).optional(),
   category: z

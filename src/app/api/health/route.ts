@@ -3,7 +3,7 @@ import { config, modeStatus } from "@/lib/server/config";
 import { marketAsOf } from "@/lib/server/market";
 import { interledgerConfigured } from "@/lib/server/payments/interledger";
 
-/** GET /api/health — which modes are on and whether live services are configured. No secrets. */
+/** GET /api/health: which modes are on and whether live services are configured. No secrets. */
 export async function GET() {
   return Response.json({
     ok: true,

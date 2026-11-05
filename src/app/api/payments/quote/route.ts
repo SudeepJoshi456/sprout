@@ -4,7 +4,7 @@ import { ApiError, parseBody, withSession } from "@/lib/server/http";
 import { createQuote, normalizeWalletAddress } from "@/lib/server/payments";
 
 /**
- * POST /api/payments/quote — resolves the recipient and returns a signed quote
+ * POST /api/payments/quote: resolves the recipient and returns a signed quote
  * (amount, fee, rate, what they receive) for the review screen. Nothing moves yet.
  */
 const schema = z.object({

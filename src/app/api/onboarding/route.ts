@@ -1,10 +1,13 @@
 import { z } from "zod";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 import { normalizeWalletAddress } from "@/lib/server/payments";
+import { interledgerConfigured } from "@/lib/server/payments/interledger";
+import { isDemoWallet } from "@/lib/server/payments/mock";
+import { config } from "@/lib/server/config";
 import type { CoachMessage } from "@/lib/types";
 
 /**
- * POST /api/onboarding — completes signup for the active persona.
+ * POST /api/onboarding: completes signup for the active persona.
  * Identity verification is simulated. Only the last 4 characters of any ID
  * number reach the server; the full number never leaves the browser.
  */
@@ -34,7 +37,11 @@ export async function POST(req: Request) {
     if (body.idType === "passport" && !body.idCountry) {
       throw new ApiError(400, "invalid_input", "Please choose the country that issued your passport.");
     }
-    const wallet = body.walletAddress ? normalizeWalletAddress(body.walletAddress) : user.profile.walletAddress;
+    let wallet = body.walletAddress ? normalizeWalletAddress(body.walletAddress) : user.profile.walletAddress;
+    // The sample wallet offered during signup isn't real; in live mode link the real one we hold keys for.
+    if (wallet && isDemoWallet(wallet) && interledgerConfigured() && config.paymentsMode === "interledger") {
+      wallet = config.op.senderWalletAddress ?? wallet;
+    }
     const preferred = body.preferredName || body.fullName.split(/\s+/)[0] || body.fullName;
     user.profile = {
       ...user.profile,

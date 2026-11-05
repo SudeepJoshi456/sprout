@@ -19,7 +19,7 @@ const fail = (msg: string, hint?: string): never => {
 
 async function main() {
   console.log("Sprout · Interledger check\n");
-  if (env.PAYMENTS_MODE !== "interledger") console.log("  ! PAYMENTS_MODE is not 'interledger' — the app will use simulated payments until you set it.\n");
+  if (env.PAYMENTS_MODE !== "interledger") console.log("  ! PAYMENTS_MODE is not 'interledger', so the app will use simulated payments until you set it.\n");
 
   const clientWallet = env.OP_CLIENT_WALLET_ADDRESS || fail("OP_CLIENT_WALLET_ADDRESS missing", "Copy .env.example to .env and fill it in");
   const keyId = env.OP_KEY_ID || fail("OP_KEY_ID missing", "Test wallet → Settings → Developer Keys");
@@ -54,7 +54,7 @@ async function main() {
     .request({ url: sender.authServer }, { access_token: { access: [{ type: "quote", actions: ["create", "read"] }] } })
     .catch((e) => fail(`Quote grant refused: ${e.message}`, "Usually a wrong OP_KEY_ID, or the key belongs to another wallet"));
   if (!isFinalizedGrantWithAccessToken(quoteGrant)) return fail("Quote grant needs interaction (unexpected)");
-  ok("Signed request accepted — your key and key ID match");
+  ok("Signed request accepted: your key and key ID match");
 
   const grantFile = join(env.DATA_DIR || ".data", "grant.json");
   if (existsSync(grantFile)) ok(`Outgoing-payment grant found in ${grantFile}`);

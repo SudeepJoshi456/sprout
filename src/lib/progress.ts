@@ -1,6 +1,6 @@
 /**
  * Habit challenges and the "Graduate to real investing" card.
- * Rewards learning and patience only — never trading volume.
+ * Rewards learning and patience only: never trading volume.
  */
 import { INVESTING_LESSON_IDS } from "@/data/lessons";
 import type { PricePoint, UserState } from "./types";

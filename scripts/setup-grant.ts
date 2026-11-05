@@ -86,7 +86,7 @@ async function main() {
       if (!expected.includes((url.searchParams.get("hash") ?? "").replace(/=+$/, ""))) {
         res.end("<h1>Couldn't verify this approval.</h1><p>Run the setup again.</p>");
         server.close();
-        return reject(new Error("Interaction hash mismatch — the redirect did not come from the auth server"));
+        return reject(new Error("Interaction hash mismatch: the redirect did not come from the auth server"));
       }
       res.end("<h1>Approved ✓</h1><p>Sprout can now send payments up to the cap. You can close this tab.</p>");
       server.close();

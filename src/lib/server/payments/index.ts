@@ -72,10 +72,15 @@ export async function createQuote(args: {
   const provider = primary();
   let fellBack = false;
   let result;
+  // Practice contacts have no real wallet; skip the network round trip that would only 404.
+  const practice = provider === interledgerProvider && isDemoWallet(args.receiverWallet);
   try {
     // Live payments always debit the wallet whose key and grant we hold.
-    result = await provider.quote(provider === interledgerProvider ? { ...args, senderWallet: config.op.senderWalletAddress! } : args);
+    result = practice
+      ? await mockProvider.quote(args)
+      : await provider.quote(provider === interledgerProvider ? { ...args, senderWallet: config.op.senderWalletAddress! } : args);
   } catch (err) {
+    if (practice) mapUserError(err);
     const demoContact = err instanceof PaymentUserError && err.code === "wallet_not_found" && isDemoWallet(args.receiverWallet);
     if ((err instanceof PaymentUserError && !demoContact) || provider === mockProvider) mapUserError(err);
     console.warn("[payments] interledger quote failed, falling back to mock", err);
@@ -86,7 +91,7 @@ export async function createQuote(args: {
       mapUserError(e);
     }
   }
-  const mode: PaymentsMode = fellBack ? "mock" : provider.mode;
+  const mode: PaymentsMode = fellBack || practice ? "mock" : provider.mode;
   const unsigned: Omit<PaymentQuote, "signature"> = {
     id: randomUUID(),
     receiver: result.receiver,

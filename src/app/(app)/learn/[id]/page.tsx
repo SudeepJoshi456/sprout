@@ -26,7 +26,7 @@ export default function LessonPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="safe-top flex shrink-0 items-center gap-2 px-2 pt-1">
+      <div className="flex shrink-0 items-center gap-2 px-2 pt-1">
         <button
           type="button"
           onClick={() => router.push("/learn")}

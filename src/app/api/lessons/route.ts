@@ -2,7 +2,7 @@ import { withSession } from "@/lib/server/http";
 import { getPriceMap } from "@/lib/server/market";
 import { learningStreak, rankLessons } from "@/lib/personalize";
 
-/** GET /api/lessons — the personalized "For you" feed and learning streak. */
+/** GET /api/lessons: the personalized "For you" feed and learning streak. */
 export async function GET(req: Request) {
   return withSession(
     req,

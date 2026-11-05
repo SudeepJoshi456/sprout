@@ -71,7 +71,7 @@ function ListeningPill({ live }: { live: boolean }) {
 
 export function ReceivePanel() {
   const { user, modes } = useAppState();
-  const live = modes.payments === "interledger";
+  const live = modes.receiving === "interledger";
   const wallet = user.profile.walletAddress;
   if (!wallet) {
     return (

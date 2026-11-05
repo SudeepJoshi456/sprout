@@ -1,16 +1,10 @@
+import Image from "next/image";
 import { cn } from "@/lib/format";
+import mark from "../../../public/logo-mark.png";
 
-/** Sprout mark: a seedling in the brand green. Matches /public/icon.svg. */
+/** Sprout mark: the seedling-and-coin logo. Same artwork as the app icons in /public. */
 export function SproutMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 64 64" className={cn("size-8", className)} aria-hidden>
-      <rect width="64" height="64" rx="14" fill="#137d41" />
-      <path d="M32 50V31" stroke="#f7faf2" strokeWidth="4.5" strokeLinecap="round" />
-      <path d="M32.5 32c0-8.5 6.2-14.5 15.5-14.5 0 9.3-6.4 15.4-15.5 14.5z" fill="#e5e75b" />
-      <path d="M31.5 37c0-7.4-5.4-12.6-13.5-12.6 0 8.1 5.6 13.4 13.5 12.6z" fill="#f7faf2" />
-      <path d="M21 50h22" stroke="#f7faf2" strokeWidth="4.5" strokeLinecap="round" />
-    </svg>
-  );
+  return <Image src={mark} alt="" aria-hidden sizes="64px" className={cn("size-8 rounded-lg object-cover", className)} />;
 }
 
 export function Wordmark({ className }: { className?: string }) {

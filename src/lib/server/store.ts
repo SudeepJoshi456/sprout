@@ -36,17 +36,39 @@ export function seedOptions() {
       sudeep: config.op.senderWalletAddress,
       roommate: config.op.roommateWallet,
       family: config.op.familyWallet,
+      friend: config.op.friendWallet,
     },
   };
 }
 
+const PLACEHOLDER = (name: string) => `https://ilp.interledger-test.dev/${name}`;
+
+/**
+ * Sessions created before live wallets were configured still point at the
+ * placeholder addresses. Swap in the real ones so they don't silently fall
+ * back to simulated payments.
+ */
+function upgradeWallets(db: SessionDb) {
+  const { senderWalletAddress: sender, familyWallet, roommateWallet, friendWallet } = config.op;
+  const sudeep = db.users?.sudeep;
+  if (sender && sudeep?.profile?.walletAddress === PLACEHOLDER("sudeep-sprout")) sudeep.profile.walletAddress = sender;
+  for (const user of Object.values(db.users ?? {})) {
+    for (const c of user?.contacts ?? []) {
+      if (familyWallet && c.walletAddress === PLACEHOLDER("sita-joshi")) c.walletAddress = familyWallet;
+      if (roommateWallet && c.walletAddress === PLACEHOLDER("ana-lopez")) c.walletAddress = roommateWallet;
+      if (friendWallet && c.walletAddress === PLACEHOLDER("jordan-reyes")) c.walletAddress = friendWallet;
+    }
+  }
+  return db;
+}
+
 export function loadSession(sid: string): SessionDb | null {
   const hit = mem.get(sid);
-  if (hit) return hit;
+  if (hit) return upgradeWallets(hit);
   try {
     const f = fileFor(sid);
     if (!existsSync(f)) return null;
-    const db = JSON.parse(readFileSync(f, "utf8")) as SessionDb;
+    const db = upgradeWallets(JSON.parse(readFileSync(f, "utf8")) as SessionDb);
     mem.set(sid, db);
     return db;
   } catch {
@@ -83,8 +105,41 @@ export function restoreSession(sid: string, snapshot: Partial<SessionDb>): Sessi
     },
     updatedAt: new Date().toISOString(),
   };
-  saveSession(sid, db);
+  saveSession(sid, upgradeWallets(db));
   return db;
+}
+
+/**
+ * Every demo session that uses the real wallet watches the same incoming
+ * payments, so each one is claimed by exactly one session. Without this, one
+ * real $1 would show up as received in every open session.
+ */
+const CLAIMS_FILE = join(config.dataDir, "incoming-claims.json");
+const gc = globalThis as unknown as { __sproutClaims?: Record<string, string> };
+
+function claims(): Record<string, string> {
+  if (!gc.__sproutClaims) {
+    try {
+      gc.__sproutClaims = JSON.parse(readFileSync(CLAIMS_FILE, "utf8")) as Record<string, string>;
+    } catch {
+      gc.__sproutClaims = {};
+    }
+  }
+  return gc.__sproutClaims;
+}
+
+/** True if this session owns the incoming payment (claiming it if nobody has). */
+export function claimIncoming(url: string, sid: string): boolean {
+  const all = claims();
+  if (all[url]) return all[url] === sid;
+  all[url] = sid;
+  try {
+    mkdirSync(config.dataDir, { recursive: true });
+    writeFileSync(CLAIMS_FILE, JSON.stringify(all));
+  } catch (err) {
+    console.warn("[store] could not persist incoming claims", err);
+  }
+  return true;
 }
 
 export function reseedPersona(db: SessionDb, persona: PersonaId) {

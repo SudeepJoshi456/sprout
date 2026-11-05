@@ -3,14 +3,15 @@ import { z } from "zod";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 import { receivingLive } from "@/lib/server/payments";
 import { createOwnIncomingPayment } from "@/lib/server/payments/interledger";
+import { claimIncoming } from "@/lib/server/store";
 import type { PaymentRequest } from "@/lib/types";
 
 /**
- * POST /api/payments/request — creates a shareable payment request link.
+ * POST /api/payments/request: creates a shareable payment request link.
  * The link opens Sprout's Send flow prefilled with this wallet and amount.
  */
 export async function POST(req: Request) {
-  return withSession(req, async ({ user }) => {
+  return withSession(req, async ({ sid, user }) => {
     const body = await parseBody(
       req,
       z.object({ amountCents: z.number().int().min(100).max(1_000_000), note: z.string().trim().max(140).default("") }),
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
       try {
         const ip = await createOwnIncomingPayment(body.amountCents, body.note || `Request from ${user.profile.fullName}`);
         request.incomingPaymentUrl = ip.url;
+        claimIncoming(ip.url, sid);
         request.receivedCents = 0;
       } catch {
         // The share link still works; it pays the wallet address instead.

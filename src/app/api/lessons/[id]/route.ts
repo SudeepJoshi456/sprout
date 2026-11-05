@@ -1,7 +1,7 @@
 import { getLesson } from "@/lib/server/ai";
 import { ApiError, withSession } from "@/lib/server/http";
 
-/** GET /api/lessons/:id — lesson content (AI-personalized when live, prewritten otherwise). */
+/** GET /api/lessons/:id: lesson content (AI-personalized when live, prewritten otherwise). */
 export async function GET(req: Request, ctx: RouteContext<"/api/lessons/[id]">) {
   return withSession(
     req,

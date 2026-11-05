@@ -28,7 +28,7 @@ const market = snapshot as unknown as MarketSnapshot;
 export interface SeedOptions {
   now?: Date;
   /** Override seeded wallet addresses with real test-network wallets. */
-  wallets?: { sudeep?: string; marcus?: string; roommate?: string; family?: string };
+  wallets?: { sudeep?: string; marcus?: string; roommate?: string; family?: string; friend?: string };
 }
 
 // Small deterministic PRNG so every reset produces the same demo.
@@ -254,7 +254,7 @@ function seedSudeep(now: Date, opts: SeedOptions): UserState {
 function seedMarcus(now: Date, opts: SeedOptions): UserState {
   const rand = rng(1984);
   const contacts: Contact[] = [
-    { id: "c_jordan", name: "Jordan Reyes", relationship: "Friend", walletAddress: "https://ilp.interledger-test.dev/jordan-reyes", assetCode: "USD" },
+    { id: "c_jordan", name: "Jordan Reyes", relationship: "Friend", walletAddress: opts.wallets?.friend || "https://ilp.interledger-test.dev/jordan-reyes", assetCode: "USD" },
     { id: "c_landlord", name: "Elm St. Apartments", relationship: "Landlord", walletAddress: "https://ilp.interledger-test.dev/elm-street", assetCode: "USD" },
   ];
 

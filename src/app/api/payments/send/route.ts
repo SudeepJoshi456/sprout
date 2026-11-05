@@ -6,7 +6,7 @@ import { saveSession } from "@/lib/server/store";
 import type { PaymentQuote, PaymentStep, Transfer } from "@/lib/types";
 
 /**
- * POST /api/payments/send — executes a reviewed quote.
+ * POST /api/payments/send: executes a reviewed quote.
  *
  * Safety: the quote is HMAC-verified (no client tampering), the idempotency
  * key makes retries and double taps return the original transfer, and money

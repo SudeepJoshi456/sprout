@@ -15,7 +15,8 @@
     "e2e:move": "node scripts/e2e-move.mjs",
     "e2e:sections": "node scripts/e2e-sections.mjs",
     "pay-incoming": "tsx scripts/pay-incoming.ts",
-    "e2e:live-receive": "node scripts/e2e-live-receive.mjs"
+    "e2e:live-receive": "node scripts/e2e-live-receive.mjs",
+    "audit-interledger": "tsx scripts/audit-interledger.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",

@@ -35,7 +35,7 @@ export function Screen({
   const router = useRouter();
   return (
     <>
-      <header className="safe-top z-20 shrink-0 bg-background/95 backdrop-blur">
+      <header className="z-20 shrink-0 bg-background/95 backdrop-blur">
         <div className="flex min-h-14 items-center gap-1 px-2">
           {back ? (
             <button

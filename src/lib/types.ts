@@ -264,6 +264,8 @@ export type MarketMode = "snapshot" | "live";
 
 export interface ModeStatus {
   payments: PaymentsMode;
+  /** Live only when the user's wallet is the real one we hold keys for. */
+  receiving?: PaymentsMode;
   ai: AiMode;
   market: MarketMode;
 }

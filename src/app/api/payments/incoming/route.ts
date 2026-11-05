@@ -3,15 +3,16 @@ import { withSession } from "@/lib/server/http";
 import { receivingLive } from "@/lib/server/payments";
 import { listOwnIncomingPayments } from "@/lib/server/payments/interledger";
 import { hostOf } from "@/lib/server/payments/types";
+import { claimIncoming } from "@/lib/server/store";
 import type { Transfer } from "@/lib/types";
 
 /**
- * POST /api/payments/incoming — checks the user's real wallet for money that
+ * POST /api/payments/incoming: checks the user's real wallet for money that
  * arrived over Interledger and credits anything new. Idempotent: each incoming
  * payment is credited only for the amount not yet seen.
  */
 export async function POST(req: Request) {
-  return withSession(req, async ({ user }) => {
+  return withSession(req, async ({ sid, user }) => {
     if (!receivingLive(user.profile.walletAddress)) return { live: false, received: [] };
 
     user.incoming ??= { since: new Date(Date.now() - 10 * 60_000).toISOString(), credited: {} };
@@ -28,9 +29,10 @@ export async function POST(req: Request) {
       if (ip.createdAt < sync.since) continue;
       const delta = ip.receivedCents - (sync.credited[ip.url] ?? 0);
       if (delta <= 0) continue;
+      const request = user.requests.find((r) => r.incomingPaymentUrl === ip.url);
+      if (!request && !claimIncoming(ip.url, sid)) continue;
       sync.credited[ip.url] = ip.receivedCents;
 
-      const request = user.requests.find((r) => r.incomingPaymentUrl === ip.url);
       if (request) {
         request.receivedCents = ip.receivedCents;
         if (ip.receivedCents >= request.amountCents) request.paidAt ??= new Date().toISOString();

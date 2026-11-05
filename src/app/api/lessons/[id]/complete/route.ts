@@ -2,7 +2,7 @@ import { z } from "zod";
 import { LESSON_META } from "@/data/lessons";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 
-/** POST /api/lessons/:id/complete — records completion and quiz score (idempotent). */
+/** POST /api/lessons/:id/complete: records completion and quiz score (idempotent). */
 export async function POST(req: Request, ctx: RouteContext<"/api/lessons/[id]/complete">) {
   return withSession(req, async ({ user }) => {
     const { id } = await ctx.params;

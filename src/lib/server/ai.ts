@@ -27,7 +27,7 @@ Rules you must always follow:
 - Culturally neutral. Don't assume the reader's background, family, religion, or income.
 - Explain US-specific terms (SSN, ITIN, credit score, routing number, 401(k), etc.) the first time they appear.
 - Use concrete, small-dollar examples a student can relate to.
-- No emojis. No exclamation marks in a row. Warm, calm, respectful tone.`;
+- No emojis. No exclamation marks in a row. No em dashes. Warm, calm, respectful tone.`;
 
 // ---- Schemas -------------------------------------------------------------
 
@@ -94,7 +94,16 @@ function loadCache() {
   return new Map<string, unknown>();
 }
 
-function remember<T>(key: string, value: T) {
+/** House style: no em dashes in anything we show, even if the model slips one in. */
+function noEmDashes<T>(value: T): T {
+  if (typeof value === "string") return value.replace(/\s*—\s*/g, ", ") as T;
+  if (Array.isArray(value)) return value.map(noEmDashes) as T;
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, noEmDashes(v)])) as T;
+  return value;
+}
+
+function remember<T>(key: string, raw: T) {
+  const value = noEmDashes(raw);
   cache.set(key, value);
   try {
     mkdirSync(config.dataDir, { recursive: true });
@@ -233,7 +242,7 @@ Write a title (max 9 words) and a body (max 40 words) that explains the concept 
     });
     const out = msg.parsed_output;
     if (!out || words(out.body) > 45 || !passesGuardrails(`${out.title} ${out.body}`)) throw new Error("Coach failed validation");
-    return { title: out.title, body: out.body, source: "ai" };
+    return { title: noEmDashes(out.title), body: noEmDashes(out.body), source: "ai" };
   } catch (err) {
     console.warn("[ai] coach fell back to rule copy", err);
     return { title: draft.title, body: draft.body, source: "rule" };

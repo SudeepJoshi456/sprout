@@ -3,9 +3,9 @@ import { ArrowLeftRight, IdCard, LineChart } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { Wordmark } from "@/components/shell/wordmark";
 import { t } from "@/i18n";
-import hero from "../../public/welcome-hero.webp";
+import hero from "../../public/logo.webp";
 
-/** ★ Welcome — static, so it's the fastest first paint in the app. */
+/** ★ Welcome: static, so it's the fastest first paint in the app. */
 export default function Welcome() {
   const benefits = [
     { Icon: IdCard, text: t("welcome.benefitId") },
@@ -13,11 +13,11 @@ export default function Welcome() {
     { Icon: LineChart, text: t("welcome.benefitPractice") },
   ];
   return (
-    <main id="main" className="safe-top flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-6 pt-6">
+    <main id="main" className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-6 pt-8">
       <Wordmark />
-      <div className="mt-4 flex flex-1 flex-col items-center justify-center text-center">
-        <div className="relative aspect-square w-full max-w-[240px] overflow-hidden rounded-[2rem] shadow-card">
-          <Image src={hero} alt={t("welcome.heroAlt")} priority placeholder="blur" sizes="240px" className="object-cover" fill />
+      <div className="mt-6 flex flex-1 flex-col items-center justify-center text-center">
+        <div className="relative aspect-[802/828] w-full max-w-[220px] overflow-hidden rounded-2xl shadow-card">
+          <Image src={hero} alt={t("welcome.heroAlt")} priority placeholder="blur" sizes="220px" className="object-cover" fill />
         </div>
         <h1 className="mt-6 text-balance font-display text-display font-semibold">{t("welcome.headline")}</h1>
         <p className="mt-3 max-w-xs text-pretty text-body text-muted-foreground">{t("welcome.sub")}</p>

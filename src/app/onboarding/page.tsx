@@ -42,7 +42,7 @@ const VISAS: VisaType[] = ["F-1", "J-1", "H-1B", "other"];
 
 /**
  * The draft is saved to localStorage so people can leave and come back.
- * The full ID number is deliberately NOT part of the draft — only the last 4
+ * The full ID number is deliberately NOT part of the draft: only the last 4
  * characters, and only after verification.
  */
 interface Draft {
@@ -97,7 +97,7 @@ function loadDraft(): Draft {
   }
 }
 
-/** ★ Onboarding — 5 short steps, one decision per screen. */
+/** ★ Onboarding: 5 short steps, one decision per screen. */
 export default function OnboardingPage() {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -139,7 +139,7 @@ export default function OnboardingPage() {
   const step = draft.step;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="safe-top shrink-0 px-2 pt-1">
+      <header className="shrink-0 px-2 pt-1">
         <div className="flex min-h-14 items-center gap-1">
           <button type="button" onClick={back} aria-label={t("app.back")} className="inline-flex size-11 items-center justify-center rounded-full hover:bg-muted">
             <ChevronLeft className="size-6" aria-hidden />
@@ -669,7 +669,7 @@ function GoalStep({ draft, update, headingRef, onDone }: StepProps & { onDone: (
 
   const finish = async () => {
     if (!draft.goal || !draft.idType || !draft.idLast4) {
-      // Missing an earlier step (e.g. a stale draft) — send them back to it.
+      // Missing an earlier step (e.g. a stale draft): send them back to it.
       if (!draft.idLast4) update({ step: 3 });
       return;
     }

@@ -8,18 +8,16 @@ import { FrameContext } from "./frame-context";
 
 /**
  * Mobile: the app fills the screen.
- * Tablet/desktop: a centered phone-sized frame (like the original design),
- * with an optional side panel for judges on wide screens.
+ * Tablet/desktop: a centered phone-sized frame (like the original design).
  */
-export function PhoneFrame({ children, side }: { children: ReactNode; side?: ReactNode }) {
+export function PhoneFrame({ children }: { children: ReactNode }) {
   const [frame, setFrame] = useState<HTMLElement | null>(null);
   const { resolvedTheme } = useTheme();
   return (
-    <div className="flex min-h-dvh w-full items-stretch justify-center bg-frame sm:items-center sm:gap-12 sm:px-6 sm:py-6">
-      {side}
+    <div className="flex min-h-dvh w-full items-stretch justify-center bg-frame sm:items-center sm:px-6 sm:py-6">
       <div
         ref={setFrame}
-        className="relative flex h-dvh w-full flex-col overflow-hidden bg-background sm:h-[min(880px,calc(100dvh-3rem))] sm:max-w-[420px] sm:rounded-[2.5rem] sm:border sm:border-border sm:shadow-raised"
+        className="safe-top relative flex h-dvh w-full flex-col overflow-hidden bg-background sm:h-[min(880px,calc(100dvh-3rem))] sm:max-w-[420px] sm:rounded-[2.5rem] sm:border sm:border-border sm:shadow-raised"
       >
         <a
           href="#main"

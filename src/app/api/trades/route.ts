@@ -8,7 +8,7 @@ import { MIN_TRADE_CENTS, applyTrade, roundShares, validateTrade } from "@/lib/p
 import type { Trade } from "@/lib/types";
 
 /**
- * POST /api/trades — a simulated buy or sell with Sprout Seeds (play money).
+ * POST /api/trades: a simulated buy or sell with Sprout Seeds (play money).
  * Fills at the latest available (delayed) price. Fractional shares to 6 decimals.
  * No options, shorting, margin, or crypto.
  */

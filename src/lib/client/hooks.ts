@@ -39,13 +39,17 @@ export function useResource<T>(key: string | null) {
 export function useBootstrap() {
   const state = useClientState();
   const [error, setError] = useState<ApiClientError | null>(null);
+  const fetchState = useCallback(
+    () => api("/api/state").catch((e) => setError(e instanceof ApiClientError ? e : new ApiClientError(0, "unknown", String(e)))),
+    [],
+  );
   const load = useCallback(() => {
     setError(null);
-    api("/api/state").catch((e) => setError(e instanceof ApiClientError ? e : new ApiClientError(0, "unknown", String(e))));
-  }, []);
+    void fetchState();
+  }, [fetchState]);
   useEffect(() => {
-    if (!store.get()) load();
-  }, [load]);
+    if (!store.get()) void fetchState();
+  }, [fetchState]);
   return { state, error, retry: load };
 }
 

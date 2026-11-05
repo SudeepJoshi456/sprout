@@ -34,7 +34,7 @@ export default function HomePage() {
   const coach = activeCoach(user.coach);
   return (
     <>
-      <header className="safe-top flex shrink-0 items-center justify-between gap-3 px-4 pb-2 pt-3">
+      <header className="flex shrink-0 items-center justify-between gap-3 px-4 pb-2 pt-3">
         <h1 className="min-w-0 truncate font-display text-headline font-semibold">{t(greetingKey(), { name: user.profile.preferredName })}</h1>
         <Link href="/profile" aria-label={t("home.profile")} className="rounded-full">
           <Avatar name={user.profile.fullName} />

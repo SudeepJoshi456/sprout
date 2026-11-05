@@ -7,7 +7,7 @@ import { cn } from "@/lib/format";
 /**
  * Large selectable card backed by a real checkbox/radio input, so keyboard,
  * screen readers, and form semantics work natively. Selection is shown by
- * border, fill, and a check mark — never color alone.
+ * border, fill, and a check mark: never color alone.
  */
 export function ChoiceCard({
   type,

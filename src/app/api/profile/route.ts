@@ -2,7 +2,7 @@ import { z } from "zod";
 import { parseBody, withSession } from "@/lib/server/http";
 import { normalizeWalletAddress } from "@/lib/server/payments";
 
-/** PATCH /api/profile — settings, display currency, linked wallet. */
+/** PATCH /api/profile: settings, display currency, linked wallet. */
 const schema = z.object({
   showHomeCurrency: z.boolean().optional(),
   notifications: z

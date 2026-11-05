@@ -1,7 +1,7 @@
 import "server-only";
 import type { z } from "zod";
 import type { PersonaId, SessionDb, UserState } from "@/lib/types";
-import { modeStatus } from "./config";
+import { config, modeStatus } from "./config";
 import { SESSION_HEADER, isValidSid, loadSession, saveSession } from "./store";
 
 /** Errors thrown inside handlers become `{ error: { code, message } }` responses. */
@@ -21,7 +21,7 @@ export function errorResponse(err: unknown) {
   }
   console.error("[api] unexpected error", err);
   return Response.json(
-    { error: { code: "server_error", message: "Something went wrong on our side. Your data is safe — please try again." } },
+    { error: { code: "server_error", message: "Something went wrong on our side. Your data is safe, so please try again." } },
     { status: 500 },
   );
 }
@@ -77,10 +77,13 @@ export async function withSession(
 }
 
 export function clientState(db: SessionDb) {
+  const modes = modeStatus();
+  const user = db.users[db.activePersona];
+  const receivingLive = modes.payments === "interledger" && !!user.profile.walletAddress && user.profile.walletAddress === config.op.senderWalletAddress;
   return {
     persona: db.activePersona,
-    user: db.users[db.activePersona],
-    modes: modeStatus(),
+    user,
+    modes: { ...modes, receiving: receivingLive ? "interledger" : "mock" },
     serverTime: new Date().toISOString(),
   };
 }

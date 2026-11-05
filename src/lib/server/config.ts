@@ -40,6 +40,7 @@ export const config = {
     /** Optional real test-network wallets to use for the seeded contacts. */
     roommateWallet: process.env.OP_DEMO_ROOMMATE_WALLET,
     familyWallet: process.env.OP_DEMO_FAMILY_WALLET,
+    friendWallet: process.env.OP_DEMO_FRIEND_WALLET,
   },
 };
 
