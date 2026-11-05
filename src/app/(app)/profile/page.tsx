@@ -4,12 +4,12 @@ import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { BadgeCheck, Copy, CreditCard, GraduationCap, LogOut, PiggyBank, RotateCcw, TrendingUp, UserRound, Wallet } from "lucide-react";
+import { BadgeCheck, Copy, CreditCard, GraduationCap, Landmark, LogOut, PiggyBank, RotateCcw, TrendingUp, UserRound, Wallet } from "lucide-react";
 import { Screen } from "@/components/shell/screen";
 import { Card, CardHeader, SectionTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, SimulatedBadge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
 import { Sheet } from "@/components/ui/sheet";
@@ -126,6 +126,40 @@ export default function ProfilePage() {
             <Button variant="outline" className={p.walletAddress ? "" : "col-span-2"} onClick={() => setWalletOpen(true)}>
               {t("profile.walletEdit")}
             </Button>
+          </div>
+        </Card>
+
+        <Card aria-labelledby="pf-bank">
+          <CardHeader
+            id="pf-bank"
+            title={
+              <span className="flex items-center gap-2">
+                <Landmark className="size-4 text-primary" aria-hidden />
+                {t("profile.bankTitle")}
+              </span>
+            }
+            action={<SimulatedBadge />}
+          />
+          <dl className="mb-3 divide-y divide-border">
+            <Row label={t("profile.accountTitle")} value={user.account.lastFour ? `${user.account.name} ••${user.account.lastFour}` : t("profile.accountNotOpen")} />
+            {user.linkedBank && <Row label={user.linkedBank.institution} value={`${user.linkedBank.accountName} ••${user.linkedBank.mask}`} />}
+          </dl>
+          {!user.linkedBank && <p className="mb-3 text-body text-muted-foreground">{t("profile.bankNone")}</p>}
+          <div className="grid grid-cols-2 gap-2">
+            <ButtonLink href="/add-money" variant="secondary" className={user.linkedBank ? "" : "col-span-2"}>
+              {user.linkedBank ? t("bank.ctaDeposit") : t("profile.bankConnect")}
+            </ButtonLink>
+            {user.linkedBank && (
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  await api("/api/bank/link", { method: "DELETE" });
+                  toast.success(t("profile.bankUnlinked"));
+                }}
+              >
+                {t("profile.bankUnlink")}
+              </Button>
+            )}
           </div>
         </Card>
 

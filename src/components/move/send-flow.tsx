@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { CircleAlert, CircleCheck, ClipboardPaste, Globe, Loader2, QrCode, Receipt, Share2 } from "lucide-react";
+import { CircleAlert, CircleCheck, ClipboardPaste, Globe, Landmark, Loader2, QrCode, Receipt, Share2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, SimulatedBadge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { AmountDisplay, amountToCents, Keypad, QuickChips } from "@/components/ui/keypad";
 import { Sheet } from "@/components/ui/sheet";
@@ -158,6 +158,21 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
       setStage("review");
     }
   };
+
+  if (stage === "recipient" && user.account.balanceCents === 0) {
+    return (
+      <div className="flex flex-col items-center rounded-2xl border border-dashed border-input p-6 text-center">
+        <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-primary">
+          <Landmark className="size-6" aria-hidden />
+        </span>
+        <h2 className="mt-3 font-display text-title font-semibold">{t("bank.emptySendTitle")}</h2>
+        <p className="mt-1 text-body text-muted-foreground">{t("bank.emptySendBody")}</p>
+        <ButtonLink href="/add-money" size="lg" className="mt-4">
+          {user.linkedBank ? t("bank.ctaDeposit") : t("bank.ctaConnect")}
+        </ButtonLink>
+      </div>
+    );
+  }
 
   if (stage === "recipient") {
     return (

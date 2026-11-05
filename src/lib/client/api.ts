@@ -84,7 +84,7 @@ export function clearSnapshot() {
 // ---- Requests ----------------------------------------------------------------
 
 interface Options {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   signal?: AbortSignal;
 }

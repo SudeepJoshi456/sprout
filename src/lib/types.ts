@@ -62,9 +62,19 @@ export interface Settings {
 
 export interface Account {
   name: string;
-  lastFour: string;
+  /** null until the first deposit opens the account. */
+  lastFour: string | null;
   balanceCents: number;
   currency: "USD";
+}
+
+/** An outside bank account the user connected to move money in (simulated). */
+export interface LinkedBank {
+  institutionId: string;
+  institution: string;
+  accountName: string;
+  mask: string;
+  linkedAt: string;
 }
 
 export interface Transaction {
@@ -238,6 +248,7 @@ export interface UserState {
   profile: Profile;
   settings: Settings;
   account: Account;
+  linkedBank?: LinkedBank | null;
   transactions: Transaction[];
   budget: Budget;
   bills: Bill[];

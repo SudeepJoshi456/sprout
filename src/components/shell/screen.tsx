@@ -21,8 +21,8 @@ export function Screen({
   footer,
 }: {
   title: string;
-  /** true = router.back(), string = link target */
-  back?: boolean | string;
+  /** true = router.back(), string = link target, function = custom (e.g. previous step) */
+  back?: boolean | string | (() => void);
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -40,7 +40,7 @@ export function Screen({
           {back ? (
             <button
               type="button"
-              onClick={() => (typeof back === "string" ? router.push(back) : router.back())}
+              onClick={() => (typeof back === "function" ? back() : typeof back === "string" ? router.push(back) : router.back())}
               className="inline-flex size-11 items-center justify-center rounded-full hover:bg-muted"
               aria-label={t("app.back")}
             >

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, BookOpen, ChevronRight, Globe, Sprout, X } from "lucide-react";
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, BookOpen, Check, ChevronRight, Globe, Plus, Sprout, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Change, Money } from "@/components/ui/money";
@@ -44,9 +44,15 @@ export default function HomePage() {
         <Suspense>
           <WelcomeMoment name={user.profile.preferredName} />
         </Suspense>
-        <BalanceCard user={user} />
-        <MoneyFromHome user={user} />
-        <SafeToSpendCard user={user} />
+        {user.account.lastFour ? (
+          <>
+            <BalanceCard user={user} />
+            <MoneyFromHome user={user} />
+            <SafeToSpendCard user={user} />
+          </>
+        ) : (
+          <FundAccountCard user={user} />
+        )}
         {coach && <CoachCard message={coach} />}
         <TodaysLesson persona={persona} />
         <BudgetSummary user={user} />
@@ -86,9 +92,9 @@ function BalanceCard({ user }: { user: UserState }) {
   const home = user.profile.homeCurrency;
   const showHome = home && user.settings.showHomeCurrency && FX_PER_USD[home];
   const actions = [
+    { href: "/add-money", label: t("bank.quickAdd"), Icon: Plus },
     { href: "/move", label: t("home.quickSend"), Icon: ArrowUpRight },
     { href: "/move?tab=request", label: t("home.quickRequest"), Icon: ArrowDownLeft },
-    { href: "/grow", label: t("home.quickBuy"), Icon: Sprout },
     { href: "/learn", label: t("home.quickLearn"), Icon: BookOpen },
   ];
   return (
@@ -117,6 +123,43 @@ function BalanceCard({ user }: { user: UserState }) {
           </Link>
         ))}
       </nav>
+    </Card>
+  );
+}
+
+function FundAccountCard({ user }: { user: UserState }) {
+  const linked = Boolean(user.linkedBank);
+  const steps = [
+    { label: t("bank.stepConnect"), done: linked, detail: user.linkedBank ? `${user.linkedBank.institution} ••${user.linkedBank.mask}` : null },
+    { label: t("bank.stepDeposit"), done: false, detail: null },
+  ];
+  return (
+    <Card aria-labelledby="fund-title" className="p-5">
+      <div className="flex items-center justify-between">
+        <h2 id="fund-title" className="font-display text-title font-semibold">
+          {t("bank.setupTitle")}
+        </h2>
+        <SimulatedBadge />
+      </div>
+      <p className="mt-1 text-body text-muted-foreground">{t("bank.setupBody")}</p>
+      <ol className="mt-4 space-y-3">
+        {steps.map((s, i) => (
+          <li key={s.label} className="flex items-center gap-3">
+            <span
+              className={`flex size-8 shrink-0 items-center justify-center rounded-full text-caption font-bold ${s.done ? "bg-positive text-white" : "bg-secondary text-primary"}`}
+            >
+              {s.done ? <Check className="size-4" strokeWidth={3} aria-label="Done" /> : i + 1}
+            </span>
+            <span className="min-w-0">
+              <span className={`block text-body font-medium ${s.done ? "text-muted-foreground line-through" : ""}`}>{s.label}</span>
+              {s.detail && <span className="block text-caption text-muted-foreground">{s.detail}</span>}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <ButtonLink href="/add-money" size="lg" className="mt-5">
+        {linked ? t("bank.ctaDeposit") : t("bank.ctaConnect")}
+      </ButtonLink>
     </Card>
   );
 }

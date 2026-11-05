@@ -71,5 +71,15 @@ export async function POST(req: Request) {
       source: "rule",
     };
     user.coach = [welcome, ...user.coach.filter((c) => c.kind !== "welcome")];
+
+    // A new account starts empty; it opens with the first deposit from a linked bank.
+    user.account = { name: "Everyday checking", lastFour: null, balanceCents: 0, currency: "USD" };
+    user.linkedBank = null;
+    user.transactions = [];
+    user.transfers = [];
+    user.requests = [];
+    user.bills = [];
+    user.incoming = undefined;
+    user.budget = { ...user.budget, period: "monthly" };
   });
 }

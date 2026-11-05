@@ -53,11 +53,12 @@ function upgradeWallets(db: SessionDb) {
   const { senderWalletAddress: sender, familyWallet, roommateWallet, friendWallet } = config.op;
   const sudeep = db.users?.sudeep;
   if (sender && sudeep?.profile?.walletAddress === PLACEHOLDER("sudeep-sprout")) sudeep.profile.walletAddress = sender;
+  // Seeded contacts follow the configured wallets, so changing .env re-points them.
+  const configured: Record<string, string | undefined> = { c_mom: familyWallet, c_ana: roommateWallet, c_jordan: friendWallet };
   for (const user of Object.values(db.users ?? {})) {
     for (const c of user?.contacts ?? []) {
-      if (familyWallet && c.walletAddress === PLACEHOLDER("sita-joshi")) c.walletAddress = familyWallet;
-      if (roommateWallet && c.walletAddress === PLACEHOLDER("ana-lopez")) c.walletAddress = roommateWallet;
-      if (friendWallet && c.walletAddress === PLACEHOLDER("jordan-reyes")) c.walletAddress = friendWallet;
+      const wallet = configured[c.id];
+      if (wallet && c.walletAddress !== wallet) c.walletAddress = wallet;
     }
   }
   return db;

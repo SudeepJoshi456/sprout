@@ -55,6 +55,17 @@ await step("signup with autofill, ends on Home", async () => {
   await main().getByText(/Sudeep/).first().waitFor();
 });
 
+await step("new account: connect a demo bank and deposit $100", async () => {
+  await main().getByText("Let's fund your account").waitFor();
+  await page.goto(`${BASE}/add-money`);
+  await main().getByRole("button", { name: /Chase/ }).click();
+  await main().getByRole("button", { name: "Sign in" }).click();
+  await main().getByRole("button", { name: "Connect account" }).click();
+  await main().getByRole("button", { name: "$100" }).click();
+  await main().getByRole("button", { name: "Add $100.00" }).click();
+  await main().getByText("Your account is open").waitFor();
+});
+
 await step("Profile shows the real wallet and identity", async () => {
   await page.goto(`${BASE}/profile`);
   await main().getByText("Sudeep Joshi").first().waitFor();
