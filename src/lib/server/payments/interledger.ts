@@ -12,6 +12,7 @@ import {
 import { FX_PER_USD } from "@/data/fx";
 import type { WalletInfo } from "@/lib/types";
 import { config } from "../config";
+import { kvEnabled, kvGet, kvSet } from "../kv";
 import { hostOf, PaymentUserError, StepRecorder, type PaymentsProvider } from "./types";
 
 /**
@@ -71,7 +72,14 @@ async function client() {
   return clientPromise;
 }
 
-function getOutgoingGrant(): OutgoingGrant {
+const GRANT_KEY = "sprout:outgoing-grant";
+
+async function getOutgoingGrant(): Promise<OutgoingGrant> {
+  // Rotation invalidates the old token, so every instance must read the latest one.
+  if (kvEnabled) {
+    const stored = await kvGet(GRANT_KEY);
+    if (stored) return (outgoingGrant = JSON.parse(stored) as OutgoingGrant);
+  }
   // Re-read the file each time: scripts (setup-grant, pay-incoming) may have rotated the token.
   if (existsSync(GRANT_FILE)) {
     try {
@@ -89,8 +97,9 @@ function getOutgoingGrant(): OutgoingGrant {
   throw new Error("No outgoing payment grant. Run `npm run setup-grant` first.");
 }
 
-function persistGrant(g: OutgoingGrant) {
+async function persistGrant(g: OutgoingGrant) {
   outgoingGrant = g;
+  if (kvEnabled) await kvSet(GRANT_KEY, JSON.stringify(g));
   try {
     mkdirSync(config.dataDir, { recursive: true });
     writeFileSync(GRANT_FILE, JSON.stringify(g));
@@ -356,9 +365,21 @@ export const interledgerProvider: PaymentsProvider = {
         } catch (err) {
           // Expired token (the test network answers 403 "Inactive Token"): rotate once and retry.
           if (err instanceof OpenPaymentsClientError && (err.status === 401 || err.status === 403)) {
-            const rotated = await c.token.rotate({ url: grant.manageUrl, accessToken: grant.accessToken });
-            grant = { accessToken: rotated.access_token.value, manageUrl: rotated.access_token.manage };
-            persistGrant(grant);
+            // Another instance may already have rotated it; use theirs if so.
+            const latest = await getOutgoingGrant();
+            if (latest.accessToken !== grant.accessToken) {
+              grant = latest;
+              return create(grant.accessToken);
+            }
+            try {
+              const rotated = await c.token.rotate({ url: grant.manageUrl, accessToken: grant.accessToken });
+              grant = { accessToken: rotated.access_token.value, manageUrl: rotated.access_token.manage };
+              await persistGrant(grant);
+            } catch (rotateErr) {
+              const after = await getOutgoingGrant();
+              if (after.accessToken === grant.accessToken) throw rotateErr;
+              grant = after;
+            }
             return create(grant.accessToken);
           }
           throw err;

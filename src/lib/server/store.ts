@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node
 import { join } from "node:path";
 import type { PersonaId, SessionDb, UserState } from "@/lib/types";
 import { config } from "./config";
+import { kvEnabled, kvGet, kvSetNx } from "./kv";
 import { seedDb, seedUser } from "./seed";
 
 /**
@@ -129,7 +130,11 @@ function claims(): Record<string, string> {
 }
 
 /** True if this session owns the incoming payment (claiming it if nobody has). */
-export function claimIncoming(url: string, sid: string): boolean {
+export async function claimIncoming(url: string, sid: string): Promise<boolean> {
+  if (kvEnabled) {
+    const key = `sprout:claim:${url}`;
+    return (await kvSetNx(key, sid)) || (await kvGet(key)) === sid;
+  }
   const all = claims();
   if (all[url]) return all[url] === sid;
   all[url] = sid;

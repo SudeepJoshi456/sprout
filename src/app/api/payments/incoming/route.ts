@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       const delta = ip.receivedCents - (sync.credited[ip.url] ?? 0);
       if (delta <= 0) continue;
       const request = user.requests.find((r) => r.incomingPaymentUrl === ip.url);
-      if (!request && !claimIncoming(ip.url, sid)) continue;
+      if (!request && !(await claimIncoming(ip.url, sid))) continue;
       sync.credited[ip.url] = ip.receivedCents;
 
       if (request) {

@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       try {
         const ip = await createOwnIncomingPayment(body.amountCents, body.note || `Request from ${user.profile.fullName}`);
         request.incomingPaymentUrl = ip.url;
-        claimIncoming(ip.url, sid);
+        await claimIncoming(ip.url, sid);
         request.receivedCents = 0;
       } catch {
         // The share link still works; it pays the wallet address instead.
