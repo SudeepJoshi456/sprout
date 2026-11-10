@@ -2,6 +2,7 @@ import "server-only";
 import type { z } from "zod";
 import type { PersonaId, SessionDb, UserState } from "@/lib/types";
 import { config, modeStatus } from "./config";
+import { canSendFrom } from "./payments/interledger";
 import { SESSION_HEADER, isValidSid, loadSession, saveSession } from "./store";
 
 /** Errors thrown inside handlers become `{ error: { code, message } }` responses. */
@@ -79,11 +80,17 @@ export async function withSession(
 export function clientState(db: SessionDb) {
   const modes = modeStatus();
   const user = db.users[db.activePersona];
-  const receivingLive = modes.payments === "interledger" && !!user.profile.walletAddress && user.profile.walletAddress === config.op.senderWalletAddress;
+  const live = modes.payments === "interledger";
+  const wallets = live ? config.op.wallets.map((w) => ({ ...w, canSend: canSendFrom(w.url) })) : [];
+  const receivingLive = live && wallets.some((w) => w.url === user.profile.walletAddress);
+  const chosen = user.sendFrom ?? user.profile.walletAddress;
+  const sendFrom = live ? (wallets.find((w) => w.url === chosen && w.canSend)?.url ?? config.op.senderWalletAddress ?? null) : null;
   return {
     persona: db.activePersona,
     user,
     modes: { ...modes, receiving: receivingLive ? "interledger" : "mock" },
+    wallets,
+    sendFrom,
     serverTime: new Date().toISOString(),
   };
 }

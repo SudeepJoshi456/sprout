@@ -1,6 +1,6 @@
 "use client";
 
-import type { ModeStatus, PersonaId, UserState } from "@/lib/types";
+import type { LiveWallet, ModeStatus, PersonaId, UserState } from "@/lib/types";
 import { t } from "@/i18n";
 
 /**
@@ -17,6 +17,10 @@ export interface ClientState {
   persona: PersonaId;
   user: UserState;
   modes: ModeStatus;
+  /** Real wallets to pick from in live mode (empty when simulated). */
+  wallets?: LiveWallet[];
+  /** The wallet live sends actually debit. */
+  sendFrom?: string | null;
   serverTime: string;
 }
 

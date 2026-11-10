@@ -13,11 +13,14 @@ export interface ProviderQuote {
   receive: MoneyAmount;
   rate: number | null;
   externalQuoteId?: string;
+  /** The incoming payment the quote pays into (interledger mode only). */
+  incomingPaymentUrl?: string;
   steps: PaymentStep[];
 }
 
 export interface ExecuteInput {
   externalQuoteId?: string;
+  senderWallet?: string;
   idempotencyKey: string;
   note?: string;
 }

@@ -3,7 +3,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type { PaymentQuote, PaymentStep, PaymentsMode } from "@/lib/types";
 import { config } from "../config";
 import { ApiError } from "../http";
-import { interledgerConfigured, interledgerProvider } from "./interledger";
+import { canSendFrom, interledgerConfigured, interledgerProvider } from "./interledger";
 import { isDemoWallet, mockProvider } from "./mock";
 import { PaymentUserError, type PaymentsProvider } from "./types";
 
@@ -18,9 +18,19 @@ function primary(): PaymentsProvider {
   return config.paymentsMode === "interledger" && interledgerConfigured() ? interledgerProvider : mockProvider;
 }
 
-/** Receiving is live only for the real wallet we hold keys for. */
+/** Receiving is live for any of the configured real wallets. */
 export function receivingLive(walletAddress: string | null | undefined) {
-  return primary() === interledgerProvider && Boolean(walletAddress) && walletAddress === config.op.senderWalletAddress;
+  return primary() === interledgerProvider && Boolean(walletAddress) && config.op.wallets.some((w) => w.url === walletAddress);
+}
+
+/** The wallet a live payment debits: the user's pick if Sprout can send from it, else the primary. */
+export function sendingWallet(chosen: string | null | undefined): string {
+  return chosen && canSendFrom(chosen) ? chosen : config.op.senderWalletAddress!;
+}
+
+/** Configured real wallets, for the send-from / receive-into pickers. */
+export function liveWallets() {
+  return config.op.wallets.map((w) => ({ ...w, canSend: canSendFrom(w.url) }));
 }
 
 /** Accepts https URLs and "$host/path" payment pointers. */
@@ -43,7 +53,7 @@ export function normalizeWalletAddress(input: string): string {
 }
 
 function sign(q: Omit<PaymentQuote, "signature">) {
-  const payload = JSON.stringify([q.id, q.receiver.url, q.receiver.assetCode, q.debitCents, q.feeCents, q.receive.value, q.receive.currency, q.rate, q.expiresAt, q.mode, q.externalQuoteId ?? ""]);
+  const payload = JSON.stringify([q.id, q.receiver.url, q.receiver.assetCode, q.debitCents, q.feeCents, q.receive.value, q.receive.currency, q.rate, q.expiresAt, q.mode, q.externalQuoteId ?? "", q.senderWallet ?? "", q.incomingPaymentUrl ?? ""]);
   return createHmac("sha256", config.sessionSecret).update(payload).digest("hex");
 }
 
@@ -74,11 +84,13 @@ export async function createQuote(args: {
   let result;
   // Practice contacts have no real wallet; skip the network round trip that would only 404.
   const practice = provider === interledgerProvider && isDemoWallet(args.receiverWallet);
+  // Live payments debit a wallet we hold an approved grant for.
+  const senderWallet = provider === interledgerProvider ? sendingWallet(args.senderWallet) : args.senderWallet;
+  if (provider === interledgerProvider && senderWallet === args.receiverWallet) {
+    throw new ApiError(400, "self_send", "You're sending from that wallet. Pick a different recipient or sending wallet.");
+  }
   try {
-    // Live payments always debit the wallet whose key and grant we hold.
-    result = practice
-      ? await mockProvider.quote(args)
-      : await provider.quote(provider === interledgerProvider ? { ...args, senderWallet: config.op.senderWalletAddress! } : args);
+    result = practice ? await mockProvider.quote(args) : await provider.quote({ ...args, senderWallet });
   } catch (err) {
     if (practice) mapUserError(err);
     const demoContact = err instanceof PaymentUserError && err.code === "wallet_not_found" && isDemoWallet(args.receiverWallet);
@@ -103,6 +115,7 @@ export async function createQuote(args: {
     expiresAt: new Date(Date.now() + QUOTE_TTL_MS).toISOString(),
     mode,
     externalQuoteId: result.externalQuoteId,
+    ...(mode === "interledger" ? { senderWallet, incomingPaymentUrl: result.incomingPaymentUrl } : {}),
   };
   return { quote: { ...unsigned, signature: sign(unsigned) }, fellBack, steps: result.steps };
 }
@@ -124,7 +137,7 @@ export function executeQuote(q: PaymentQuote, idempotencyKey: string, note?: str
   const run = (async (): Promise<ExecResult> => {
     if (q.mode === "interledger") {
       try {
-        const r = await interledgerProvider.execute({ externalQuoteId: q.externalQuoteId, idempotencyKey, note });
+        const r = await interledgerProvider.execute({ externalQuoteId: q.externalQuoteId, senderWallet: q.senderWallet, idempotencyKey, note });
         return { mode: "interledger", externalId: r.externalId, fellBack: false, steps: r.steps };
       } catch (err) {
         console.warn("[payments] interledger send failed, completing as simulated", err);

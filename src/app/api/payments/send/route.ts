@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 import { executeQuote, verifyQuote } from "@/lib/server/payments";
-import { saveSession } from "@/lib/server/store";
+import { markSentIncoming, saveSession } from "@/lib/server/store";
 import type { PaymentQuote, PaymentStep, Transfer } from "@/lib/types";
 
 /**
@@ -42,6 +42,7 @@ export async function POST(req: Request) {
       throw new ApiError(503, "network_error", "We couldn't reach the payment network. No money left your account.");
     }
 
+    if (q.incomingPaymentUrl) await markSentIncoming(q.incomingPaymentUrl, sid);
     const result = await executeQuote(q, body.idempotencyKey, body.note);
 
     // A concurrent request with the same key may have recorded it while we awaited.

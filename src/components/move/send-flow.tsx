@@ -14,6 +14,7 @@ import { TransferRow } from "@/components/money/rows";
 import { PaymentTrace } from "./payment-trace";
 import { TransferDetails } from "./transfer-details";
 import { ScanSheet } from "./scan-sheet";
+import { WalletPicker } from "./wallet-picker";
 import { FX_PER_USD as FX_HINT } from "@/data/fx";
 import { api, ApiClientError, newIdempotencyKey } from "@/lib/client/api";
 import { useAppState, useReducedMotion } from "@/lib/client/hooks";
@@ -48,7 +49,7 @@ const nameFromWallet = (url: string) => {
 
 /** ★ Send: recipient → amount → review (real quote) → sending → receipt. */
 export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => void }) {
-  const { user, modes } = useAppState();
+  const { user, modes, wallets = [] } = useAppState();
   const params = useSearchParams();
   const reduced = useReducedMotion();
 
@@ -177,6 +178,7 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
   if (stage === "recipient") {
     return (
       <>
+        <WalletPicker purpose="send" className="mb-5" />
         <RecipientStep
           onPick={(r) => {
             setRecipient(r);
@@ -285,6 +287,7 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
           <p className="break-all text-caption text-muted-foreground">{q.receiver.url}</p>
         </div>
         <dl className="divide-y divide-border rounded-2xl border border-border bg-card">
+          {q.senderWallet && wallets.length > 1 && <Row label={t("move.sendFrom")} value={wallets.find((w) => w.url === q.senderWallet)?.label ?? q.senderWallet} />}
           <Row label={t("move.youSend")} value={formatMoney(q.debitCents - q.feeCents)} />
           <Row label={t("move.fee")} value={formatMoney(q.feeCents)} />
           <Row label={t("move.totalCharged")} value={formatMoney(q.debitCents)} strong />
@@ -423,7 +426,7 @@ function SendingProgress({ reduced }: { reduced: boolean }) {
 }
 
 function RecipientStep({ onPick }: { onPick: (r: Recipient) => void }) {
-  const { user } = useAppState();
+  const { user, sendFrom } = useAppState();
   const [address, setAddress] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -436,7 +439,7 @@ function RecipientStep({ onPick }: { onPick: (r: Recipient) => void }) {
     setError(null);
     try {
       const res = await api<{ wallet: { url: string; assetCode: string; publicName: string | null } }>(`/api/wallet/resolve?address=${encodeURIComponent(value)}`);
-      if (res.wallet.url === user.profile.walletAddress) return setError(t("move.errSelf"));
+      if (res.wallet.url === (sendFrom ?? user.profile.walletAddress)) return setError(t("move.errSelf"));
       const known = user.contacts.find((c) => c.walletAddress === res.wallet.url);
       onPick({
         wallet: res.wallet.url,

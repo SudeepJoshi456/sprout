@@ -41,8 +41,43 @@ export const config = {
     roommateWallet: process.env.OP_DEMO_ROOMMATE_WALLET,
     familyWallet: process.env.OP_DEMO_FAMILY_WALLET,
     friendWallet: process.env.OP_DEMO_FRIEND_WALLET,
+    /** Real wallets a user can pick to send from or receive into. */
+    wallets: parseWallets(process.env.OP_WALLETS, process.env.OP_SENDER_WALLET_ADDRESS || process.env.OP_CLIENT_WALLET_ADDRESS),
+    /** Outgoing grants for wallets other than the primary, as JSON {walletUrl: {accessToken, manageUrl}}. */
+    extraGrants: parseGrants(process.env.OP_OUTGOING_GRANTS),
   },
 };
+
+export interface LiveWalletConfig {
+  label: string;
+  url: string;
+}
+
+/** OP_WALLETS="Sudeep|https://ilp.../a,JJ|https://ilp.../b". Defaults to the primary sender. */
+function parseWallets(raw: string | undefined, primary: string | undefined): LiveWalletConfig[] {
+  const list = (raw ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [label, url] = entry.includes("|") ? entry.split("|") : ["", entry];
+      return { label: label.trim(), url: url.trim().replace(/\/$/, "") };
+    })
+    .filter((w) => w.url.startsWith("https://"))
+    .map((w) => ({ ...w, label: w.label || w.url.split("/").pop()! }));
+  if (primary && !list.some((w) => w.url === primary)) list.unshift({ label: primary.split("/").pop()!, url: primary });
+  return list;
+}
+
+function parseGrants(raw: string | undefined): Record<string, { accessToken: string; manageUrl: string }> {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as Record<string, { accessToken: string; manageUrl: string }>;
+  } catch {
+    console.warn("[config] OP_OUTGOING_GRANTS is not valid JSON; ignoring it");
+    return {};
+  }
+}
 
 /** The modes actually in effect: "interledger" requires credentials, else the mock runs. */
 export function modeStatus(): ModeStatus {

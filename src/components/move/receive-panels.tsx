@@ -8,6 +8,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { AmountDisplay, amountToCents, Keypad, QuickChips } from "@/components/ui/keypad";
 import { TransferRow } from "@/components/money/rows";
+import { WalletPicker } from "./wallet-picker";
 import { api, ApiClientError } from "@/lib/client/api";
 import { useAppState } from "@/lib/client/hooks";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -91,6 +92,7 @@ export function ReceivePanel() {
         <p className="text-body text-muted-foreground">{t("move.receiveSub")}</p>
         <ListeningPill live={live} />
       </div>
+      <WalletPicker purpose="receive" />
       <QrCard value={wallet} alt={t("move.qrAlt")} />
       <p className="break-all rounded-xl bg-muted px-3 py-2 text-center font-mono text-body">{wallet}</p>
       <div className="grid grid-cols-2 gap-2">

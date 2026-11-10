@@ -249,6 +249,8 @@ export interface UserState {
   settings: Settings;
   account: Account;
   linkedBank?: LinkedBank | null;
+  /** Real wallet live payments are sent from (defaults to the primary). Receiving uses profile.walletAddress. */
+  sendFrom?: string | null;
   transactions: Transaction[];
   budget: Budget;
   bills: Bill[];
@@ -272,6 +274,14 @@ export interface SessionDb {
 export type PaymentsMode = "mock" | "interledger";
 export type AiMode = "mock" | "live";
 export type MarketMode = "snapshot" | "live";
+
+/** A real test-network wallet the user can send from or receive into. */
+export interface LiveWallet {
+  label: string;
+  url: string;
+  /** Sprout holds an approved spending grant for it. */
+  canSend: boolean;
+}
 
 export interface ModeStatus {
   payments: PaymentsMode;
@@ -342,6 +352,10 @@ export interface PaymentQuote {
   mode: PaymentsMode;
   /** Open Payments quote URL (interledger mode only). */
   externalQuoteId?: string;
+  /** Wallet the payment debits (interledger mode only). */
+  senderWallet?: string;
+  /** Incoming payment the quote pays into (interledger mode only). */
+  incomingPaymentUrl?: string;
   /** HMAC over the fields above so the client can't tamper with a quote. */
   signature: string;
 }

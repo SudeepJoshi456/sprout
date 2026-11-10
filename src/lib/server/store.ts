@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node
 import { join } from "node:path";
 import type { PersonaId, SessionDb, UserState } from "@/lib/types";
 import { config } from "./config";
-import { kvEnabled, kvGet, kvSetNx } from "./kv";
+import { kvEnabled, kvGet, kvSet, kvSetNx } from "./kv";
 import { seedDb, seedUser } from "./seed";
 
 /**
@@ -128,6 +128,24 @@ function claims(): Record<string, string> {
     }
   }
   return gc.__sproutClaims;
+}
+
+/**
+ * Payments a session sent to one of the configured wallets. That session
+ * shouldn't also see them as "received", but whoever receives into that
+ * wallet in another session should.
+ */
+const gs = globalThis as unknown as { __sproutSent?: Map<string, string> };
+const sentLocal = (gs.__sproutSent ??= new Map());
+
+export async function markSentIncoming(url: string, sid: string) {
+  sentLocal.set(url, sid);
+  if (kvEnabled) await kvSet(`sprout:sent:${url}`, sid);
+}
+
+export async function sentBySession(url: string, sid: string): Promise<boolean> {
+  if (sentLocal.get(url) === sid) return true;
+  return kvEnabled ? (await kvGet(`sprout:sent:${url}`)) === sid : false;
 }
 
 /** True if this session owns the incoming payment (claiming it if nobody has). */

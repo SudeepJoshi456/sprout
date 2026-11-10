@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { formatMoney } from "@/lib/format";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
-import { createQuote, normalizeWalletAddress } from "@/lib/server/payments";
+import { createQuote, normalizeWalletAddress, sendingWallet } from "@/lib/server/payments";
+import { modeStatus } from "@/lib/server/config";
 
 /**
  * POST /api/payments/quote: resolves the recipient and returns a signed quote
@@ -19,15 +20,16 @@ export async function POST(req: Request) {
     async ({ user }) => {
       const body = await parseBody(req, schema);
       const receiverWallet = normalizeWalletAddress(body.receiver);
-      if (!user.profile.walletAddress) {
+      const senderWallet = modeStatus().payments === "interledger" ? sendingWallet(user.sendFrom ?? user.profile.walletAddress) : user.profile.walletAddress;
+      if (!senderWallet) {
         throw new ApiError(409, "no_wallet", "Connect your wallet in Profile before sending money.");
       }
-      if (receiverWallet === user.profile.walletAddress) {
-        throw new ApiError(400, "self_send", "That's your own wallet. Pick someone else to pay.");
+      if (receiverWallet === senderWallet) {
+        throw new ApiError(400, "self_send", "That's the wallet you're sending from. Pick someone else to pay.");
       }
       const contact = user.contacts.find((c) => c.walletAddress === receiverWallet);
       const { quote, fellBack, steps } = await createQuote({
-        senderWallet: user.profile.walletAddress,
+        senderWallet,
         receiverWallet,
         receiverName: body.name || contact?.name || "",
         amountCents: body.amountCents,

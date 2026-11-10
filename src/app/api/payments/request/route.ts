@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     };
     if (receivingLive(user.profile.walletAddress)) {
       try {
-        const ip = await createOwnIncomingPayment(body.amountCents, body.note || `Request from ${user.profile.fullName}`);
+        const ip = await createOwnIncomingPayment(user.profile.walletAddress!, body.amountCents, body.note || `Request from ${user.profile.fullName}`);
         request.incomingPaymentUrl = ip.url;
         await claimIncoming(ip.url, sid);
         request.receivedCents = 0;

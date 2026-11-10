@@ -3,7 +3,7 @@ import { withSession } from "@/lib/server/http";
 import { receivingLive } from "@/lib/server/payments";
 import { listOwnIncomingPayments } from "@/lib/server/payments/interledger";
 import { hostOf } from "@/lib/server/payments/types";
-import { claimIncoming } from "@/lib/server/store";
+import { claimIncoming, sentBySession } from "@/lib/server/store";
 import type { Transfer } from "@/lib/types";
 
 /**
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const sync = user.incoming;
     let payments;
     try {
-      payments = await listOwnIncomingPayments();
+      payments = await listOwnIncomingPayments(user.profile.walletAddress!);
     } catch {
       return { live: true, received: [], error: "unreachable" };
     }
@@ -29,6 +29,7 @@ export async function POST(req: Request) {
       if (ip.createdAt < sync.since) continue;
       const delta = ip.receivedCents - (sync.credited[ip.url] ?? 0);
       if (delta <= 0) continue;
+      if (await sentBySession(ip.url, sid)) continue;
       const request = user.requests.find((r) => r.incomingPaymentUrl === ip.url);
       if (!request && !(await claimIncoming(ip.url, sid))) continue;
       sync.credited[ip.url] = ip.receivedCents;

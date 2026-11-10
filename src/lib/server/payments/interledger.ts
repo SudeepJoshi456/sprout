@@ -1,7 +1,7 @@
 import "server-only";
 import { createPrivateKey, type KeyObject } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   createAuthenticatedClient,
   isFinalizedGrantWithAccessToken,
@@ -34,7 +34,7 @@ interface OutgoingGrant {
 }
 
 let clientPromise: Promise<AuthenticatedClient> | null = null;
-let outgoingGrant: OutgoingGrant | null = null;
+const outgoingGrants: Record<string, OutgoingGrant> = {};
 
 function loadPrivateKey(): KeyObject {
   let pem: string | undefined;
@@ -72,37 +72,55 @@ async function client() {
   return clientPromise;
 }
 
-const GRANT_KEY = "sprout:outgoing-grant";
+/**
+ * Each sending wallet has its own outgoing grant. The primary wallet keeps the
+ * original locations (grant.json, OP_OUTGOING_ACCESS_TOKEN); others live in
+ * .data/grants/<name>.json or OP_OUTGOING_GRANTS.
+ */
+const isPrimary = (wallet: string) => wallet === config.op.senderWalletAddress;
+const grantKey = (wallet: string) => (isPrimary(wallet) ? "sprout:outgoing-grant" : `sprout:outgoing-grant:${wallet}`);
+export const grantFileFor = (wallet: string, dataDir = config.dataDir) =>
+  isPrimary(wallet) ? GRANT_FILE : join(dataDir, "grants", `${wallet.split("/").pop()}.json`);
 
-async function getOutgoingGrant(): Promise<OutgoingGrant> {
+function envGrant(wallet: string): OutgoingGrant | null {
+  if (isPrimary(wallet) && config.op.outgoingAccessToken && config.op.outgoingManageUrl) {
+    return { accessToken: config.op.outgoingAccessToken, manageUrl: config.op.outgoingManageUrl };
+  }
+  return config.op.extraGrants[wallet] ?? null;
+}
+
+/** Whether Sprout holds an approved spending grant for this wallet. */
+export function canSendFrom(wallet: string) {
+  return config.op.wallets.some((w) => w.url === wallet) && (existsSync(grantFileFor(wallet)) || Boolean(envGrant(wallet)));
+}
+
+async function getOutgoingGrant(wallet: string): Promise<OutgoingGrant> {
   // Rotation invalidates the old token, so every instance must read the latest one.
   if (kvEnabled) {
-    const stored = await kvGet(GRANT_KEY);
-    if (stored) return (outgoingGrant = JSON.parse(stored) as OutgoingGrant);
+    const stored = await kvGet(grantKey(wallet));
+    if (stored) return (outgoingGrants[wallet] = JSON.parse(stored) as OutgoingGrant);
   }
   // Re-read the file each time: scripts (setup-grant, pay-incoming) may have rotated the token.
-  if (existsSync(GRANT_FILE)) {
+  const file = grantFileFor(wallet);
+  if (existsSync(file)) {
     try {
-      outgoingGrant = JSON.parse(readFileSync(GRANT_FILE, "utf8")) as OutgoingGrant;
-      return outgoingGrant;
+      return (outgoingGrants[wallet] = JSON.parse(readFileSync(file, "utf8")) as OutgoingGrant);
     } catch {
       /* fall through to memory/env */
     }
   }
-  if (outgoingGrant) return outgoingGrant;
-  if (config.op.outgoingAccessToken && config.op.outgoingManageUrl) {
-    outgoingGrant = { accessToken: config.op.outgoingAccessToken, manageUrl: config.op.outgoingManageUrl };
-    return outgoingGrant;
-  }
-  throw new Error("No outgoing payment grant. Run `npm run setup-grant` first.");
+  const known = outgoingGrants[wallet] ?? envGrant(wallet);
+  if (known) return (outgoingGrants[wallet] = known);
+  throw new Error(`No outgoing payment grant for ${wallet}. Run \`npm run setup-grant\` first.`);
 }
 
-async function persistGrant(g: OutgoingGrant) {
-  outgoingGrant = g;
-  if (kvEnabled) await kvSet(GRANT_KEY, JSON.stringify(g));
+async function persistGrant(wallet: string, g: OutgoingGrant) {
+  outgoingGrants[wallet] = g;
+  if (kvEnabled) await kvSet(grantKey(wallet), JSON.stringify(g));
   try {
-    mkdirSync(config.dataDir, { recursive: true });
-    writeFileSync(GRANT_FILE, JSON.stringify(g));
+    const file = grantFileFor(wallet);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify(g));
   } catch {
     /* memory is enough for this process */
   }
@@ -156,23 +174,24 @@ const showAmount = (a: { value: string; assetCode: string; assetScale: number })
 
 // ---- Receiving on the account holder's own wallet ----------------------------
 
-let ownIncomingToken: { value: string; at: number } | null = null;
+const ownIncomingTokens = new Map<string, { value: string; at: number }>();
 
-/** Grant to create/read/list incoming payments on our own wallet (non-interactive, cached briefly). */
+/** Grant to create/read/list incoming payments on a wallet (non-interactive, cached briefly per auth server). */
 async function ownIncomingAccess(wallet: WalletAddress, fresh = false) {
-  if (!fresh && ownIncomingToken && Date.now() - ownIncomingToken.at < 4 * 60_000) return ownIncomingToken.value;
+  const cached = ownIncomingTokens.get(wallet.authServer);
+  if (!fresh && cached && Date.now() - cached.at < 4 * 60_000) return cached.value;
   const c = await client();
   const grant = await c.grant.request(
     { url: wallet.authServer },
     { access_token: { access: [{ type: "incoming-payment", actions: ["create", "read", "list", "complete"] }] } },
   );
   if (!isFinalizedGrantWithAccessToken(grant)) throw new Error("Expected a non-interactive incoming-payment grant");
-  ownIncomingToken = { value: grant.access_token.value, at: Date.now() };
-  return ownIncomingToken.value;
+  ownIncomingTokens.set(wallet.authServer, { value: grant.access_token.value, at: Date.now() });
+  return grant.access_token.value;
 }
 
-async function withOwnIncoming<T>(fn: (wallet: WalletAddress, token: string) => Promise<T>) {
-  const wallet = await getWallet(config.op.senderWalletAddress!);
+async function withOwnIncoming<T>(walletUrl: string, fn: (wallet: WalletAddress, token: string) => Promise<T>) {
+  const wallet = await getWallet(walletUrl);
   try {
     return await fn(wallet, await ownIncomingAccess(wallet));
   } catch (err) {
@@ -182,9 +201,9 @@ async function withOwnIncoming<T>(fn: (wallet: WalletAddress, token: string) => 
 }
 
 /** Creates a real incoming payment on the user's wallet for a payment request. */
-export async function createOwnIncomingPayment(amountCents: number, description: string) {
+export async function createOwnIncomingPayment(walletUrl: string, amountCents: number, description: string) {
   const c = await client();
-  return withOwnIncoming(async (wallet, token) => {
+  return withOwnIncoming(walletUrl, async (wallet, token) => {
     const ip = await c.incomingPayment.create(
       { url: wallet.resourceServer, accessToken: token },
       {
@@ -209,9 +228,9 @@ export interface OwnIncomingPayment {
 }
 
 /** Most recent incoming payments on the user's wallet. */
-export async function listOwnIncomingPayments(): Promise<OwnIncomingPayment[]> {
+export async function listOwnIncomingPayments(walletUrl: string): Promise<OwnIncomingPayment[]> {
   const c = await client();
-  return withOwnIncoming(async (wallet, token) => {
+  return withOwnIncoming(walletUrl, async (wallet, token) => {
     const page = await c.incomingPayment.list({ url: wallet.resourceServer, walletAddress: wallet.id, accessToken: token }, { first: 50, "wallet-address": wallet.id });
     return page.result.map((ip) => {
       const minor = toMinor(ip.receivedAmount.value, ip.receivedAmount.assetScale);
@@ -318,6 +337,7 @@ export const interledgerProvider: PaymentsProvider = {
         receive: { value: receiveMinor, currency: receiver.assetCode },
         rate: null,
         externalQuoteId: quote.id,
+        incomingPaymentUrl: incoming.id,
         steps: rec.steps,
       };
     }
@@ -332,15 +352,16 @@ export const interledgerProvider: PaymentsProvider = {
       receive: { value: receiveMinor, currency: receiver.assetCode },
       rate: Math.round(effectiveRate * 10_000) / 10_000,
       externalQuoteId: quote.id,
+      incomingPaymentUrl: incoming.id,
       steps: rec.steps,
     };
   },
 
-  async execute({ externalQuoteId, idempotencyKey, note }) {
+  async execute({ externalQuoteId, senderWallet, idempotencyKey, note }) {
     if (!externalQuoteId) throw new Error("Missing Open Payments quote id");
     const c = await client();
     const rec = new StepRecorder(false);
-    const sender = await getWallet(config.op.senderWalletAddress!);
+    const sender = await getWallet(senderWallet ?? config.op.senderWalletAddress!);
     const create = (accessToken: string) =>
       c.outgoingPayment.create(
         { url: sender.resourceServer, accessToken },
@@ -350,7 +371,7 @@ export const interledgerProvider: PaymentsProvider = {
     let grant = await rec.run(
       "outgoing-grant",
       "Use the account holder's approved spending grant",
-      async () => getOutgoingGrant(),
+      async () => getOutgoingGrant(sender.id),
       (g) => ({
         detail: "Sending needs the account holder's consent. They approved a capped outgoing-payment grant once in their wallet (interactive GNAP grant); Sprout uses that token.",
         server: hostOf(g.manageUrl),
@@ -366,7 +387,7 @@ export const interledgerProvider: PaymentsProvider = {
           // Expired token (the test network answers 403 "Inactive Token"): rotate once and retry.
           if (err instanceof OpenPaymentsClientError && (err.status === 401 || err.status === 403)) {
             // Another instance may already have rotated it; use theirs if so.
-            const latest = await getOutgoingGrant();
+            const latest = await getOutgoingGrant(sender.id);
             if (latest.accessToken !== grant.accessToken) {
               grant = latest;
               return create(grant.accessToken);
@@ -374,9 +395,9 @@ export const interledgerProvider: PaymentsProvider = {
             try {
               const rotated = await c.token.rotate({ url: grant.manageUrl, accessToken: grant.accessToken });
               grant = { accessToken: rotated.access_token.value, manageUrl: rotated.access_token.manage };
-              await persistGrant(grant);
+              await persistGrant(sender.id, grant);
             } catch (rotateErr) {
-              const after = await getOutgoingGrant();
+              const after = await getOutgoingGrant(sender.id);
               if (after.accessToken === grant.accessToken) throw rotateErr;
               grant = after;
             }
