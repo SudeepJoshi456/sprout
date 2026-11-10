@@ -1,6 +1,6 @@
 import { cn, initials } from "@/lib/format";
 
-const COLORS = ["bg-[#137d41] text-white", "bg-[#2c94b0] text-white", "bg-[#8a5a00] text-white", "bg-[#5b3fa0] text-white", "bg-[#b42b2f] text-white"];
+const COLORS = ["bg-primary text-primary-foreground", "bg-accent text-accent-foreground", "bg-positive-soft text-primary", "bg-secondary text-secondary-foreground"];
 
 /** Initials avatar; color is derived from the name so it's stable. */
 export function Avatar({ name, size = "md", className }: { name: string; size?: "sm" | "md" | "lg"; className?: string }) {

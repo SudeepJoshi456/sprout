@@ -32,6 +32,23 @@ export async function kvSet(key: string, value: string): Promise<void> {
 }
 
 /** Sets the key only if it doesn't exist. Returns true if this call set it. */
-export async function kvSetNx(key: string, value: string): Promise<boolean> {
-  return (await command<string>(["SET", key, value, "NX"])) === "OK";
+export async function kvSetNx(key: string, value: string, ttlSeconds?: number): Promise<boolean> {
+  const args: (string | number)[] = ["SET", key, value, "NX"];
+  if (ttlSeconds) args.push("EX", ttlSeconds);
+  return (await command<string>(args)) === "OK";
+}
+
+export async function kvSetEx(key: string, value: string, ttlSeconds: number): Promise<void> {
+  await command(["SET", key, value, "EX", ttlSeconds]);
+}
+
+export async function kvDel(key: string): Promise<void> {
+  await command(["DEL", key]);
+}
+
+/** Increments a counter, starting its expiry window on the first hit. */
+export async function kvIncr(key: string, ttlSeconds: number): Promise<number> {
+  const n = (await command<number>(["INCR", key])) ?? 0;
+  if (n === 1) await command(["EXPIRE", key, ttlSeconds]);
+  return n;
 }

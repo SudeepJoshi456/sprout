@@ -15,7 +15,10 @@ export function Segmented<T extends string>({
   className,
   role = "tablist",
   controls,
+  dense,
 }: {
+  /** Smaller text for 4+ options on a phone. */
+  dense?: boolean;
   options: Array<{ value: T; label: string }>;
   value: T;
   onChange: (v: T) => void;
@@ -55,7 +58,8 @@ export function Segmented<T extends string>({
             onClick={() => onChange(o.value)}
             onKeyDown={(e) => onKey(e, i)}
             className={cn(
-              "min-h-10 flex-1 rounded-lg px-3 text-body font-semibold transition-colors duration-150",
+              "min-h-10 min-w-0 flex-1 rounded-lg font-semibold transition-colors duration-150",
+              dense ? "truncate px-1 text-caption" : "px-3 text-body",
               active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >

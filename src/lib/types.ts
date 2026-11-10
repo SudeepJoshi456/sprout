@@ -3,11 +3,9 @@
  * so this file must stay free of runtime dependencies.
  *
  * Money convention: every `*Cents` field is an integer in minor units (cents).
- * Practice money ("Sprout Seeds") uses the same convention: 1 Seed = $1 of
- * pretend value, with no cash value.
+ * Practice money uses the same convention: $1 of pretend value, with no cash value.
  */
 
-export type PersonaId = "sudeep" | "marcus";
 export type IdType = "ssn" | "itin" | "passport";
 export type VisaType = "F-1" | "J-1" | "H-1B" | "other";
 export type Reason = "new_to_us" | "new_to_money" | "learn_investing";
@@ -30,7 +28,7 @@ export type CategoryId =
   | "other";
 
 export interface Profile {
-  id: PersonaId;
+  id: string;
   fullName: string;
   preferredName: string;
   age: number;
@@ -66,15 +64,6 @@ export interface Account {
   lastFour: string | null;
   balanceCents: number;
   currency: "USD";
-}
-
-/** An outside bank account the user connected to move money in (simulated). */
-export interface LinkedBank {
-  institutionId: string;
-  institution: string;
-  accountName: string;
-  mask: string;
-  linkedAt: string;
 }
 
 export interface Transaction {
@@ -248,9 +237,6 @@ export interface UserState {
   profile: Profile;
   settings: Settings;
   account: Account;
-  linkedBank?: LinkedBank | null;
-  /** Real wallet live payments are sent from (defaults to the primary). Receiving uses profile.walletAddress. */
-  sendFrom?: string | null;
   transactions: Transaction[];
   budget: Budget;
   bills: Bill[];
@@ -264,24 +250,45 @@ export interface UserState {
   demo: DemoFlags;
 }
 
-export interface SessionDb {
-  version: number;
-  activePersona: PersonaId;
-  users: Record<PersonaId, UserState>;
-  updatedAt: string;
-}
-
 export type PaymentsMode = "mock" | "interledger";
 export type AiMode = "mock" | "live";
 export type MarketMode = "snapshot" | "live";
 
-/** A real test-network wallet the user can send from or receive into. */
-export interface LiveWallet {
-  label: string;
+/** The person's connected wallet, as the browser sees it (never includes tokens). */
+export interface ConnectedWallet {
   url: string;
-  /** Sprout holds an approved spending grant for it. */
-  canSend: boolean;
+  assetCode: string;
+  /** Spending cap they approved, in the wallet's minor units (scale 2). */
+  capMinor: number;
+  linkedAt: string;
 }
+
+export interface WalletActivityItem {
+  id: string;
+  direction: "in" | "out";
+  /** Minor units (scale 2) in `currency`, as the wallet reported it. */
+  amount: number;
+  currency: string;
+  at: string;
+  description: string | null;
+  counterparty: string | null;
+  status: "completed" | "pending" | "failed";
+}
+
+/** Real payments in and out of the connected wallet. Open Payments has no balance endpoint. */
+export type WalletActivity =
+  | { connected: false }
+  | {
+      connected: true;
+      wallet: string;
+      currency: string;
+      receivedMinor: number;
+      sentMinor: number;
+      capMinor: number;
+      items: WalletActivityItem[];
+      /** One of the two lists couldn't be read right now. */
+      partial: boolean;
+    };
 
 export interface ModeStatus {
   payments: PaymentsMode;

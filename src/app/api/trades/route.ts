@@ -8,7 +8,7 @@ import { MIN_TRADE_CENTS, applyTrade, roundShares, validateTrade } from "@/lib/p
 import type { Trade } from "@/lib/types";
 
 /**
- * POST /api/trades: a simulated buy or sell with Sprout Seeds (play money).
+ * POST /api/trades: a simulated buy or sell with practice money (fake money for learning).
  * Fills at the latest available (delayed) price. Fractional shares to 6 decimals.
  * No options, shorting, margin, or crypto.
  */
@@ -24,7 +24,7 @@ const schema = z.object({
 const MESSAGES: Record<string, string> = {
   amount_invalid: "Enter an amount greater than zero.",
   below_minimum: `The smallest practice trade is ${formatMoney(MIN_TRADE_CENTS)}.`,
-  insufficient_seeds: "You don't have enough Seeds for that. Try a smaller amount.",
+  insufficient_seeds: "You don't have enough practice money for that. Try a smaller amount.",
   exceeds_position: "That's more than you own. Try a smaller amount or sell all.",
   no_price: "We don't have a price for this right now. Try again in a minute.",
 };

@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { CircleAlert, CircleCheck, ClipboardPaste, Globe, Landmark, Loader2, QrCode, Receipt, Share2 } from "lucide-react";
+import { ChevronDown, CircleAlert, CircleCheck, ClipboardPaste, Globe, Loader2, QrCode, Receipt, Search, Share2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, SimulatedBadge } from "@/components/ui/badge";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { AmountDisplay, amountToCents, Keypad, QuickChips } from "@/components/ui/keypad";
 import { Sheet } from "@/components/ui/sheet";
@@ -14,10 +14,11 @@ import { TransferRow } from "@/components/money/rows";
 import { PaymentTrace } from "./payment-trace";
 import { TransferDetails } from "./transfer-details";
 import { ScanSheet } from "./scan-sheet";
-import { WalletPicker } from "./wallet-picker";
+import { ConnectWallet } from "@/components/money/connect-wallet";
 import { FX_PER_USD as FX_HINT } from "@/data/fx";
 import { api, ApiClientError, newIdempotencyKey } from "@/lib/client/api";
 import { useAppState, useReducedMotion } from "@/lib/client/hooks";
+import { atHandle, handleFor } from "@/lib/handles";
 import { cn, formatDate, formatForeign, formatMoney } from "@/lib/format";
 import type { PaymentQuote, PaymentStep, Transfer } from "@/lib/types";
 import type { SendResponse } from "@/lib/api-types";
@@ -34,8 +35,13 @@ type Stage = "recipient" | "amount" | "review" | "sending" | "receipt";
 
 interface QuoteResult {
   quote: PaymentQuote;
-  fellBack: boolean;
   steps: PaymentStep[];
+}
+
+interface Member {
+  name: string;
+  handle: string;
+  walletAddress: string;
 }
 
 const nameFromWallet = (url: string) => {
@@ -49,7 +55,7 @@ const nameFromWallet = (url: string) => {
 
 /** ★ Send: recipient → amount → review (real quote) → sending → receipt. */
 export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => void }) {
-  const { user, modes, wallets = [] } = useAppState();
+  const { user, modes, wallet } = useAppState();
   const params = useSearchParams();
   const reduced = useReducedMotion();
 
@@ -111,7 +117,6 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
     if (!recipient) return;
     const cents = amountToCents(amount);
     if (cents < 100) return setAmountError(t("move.amountMin"));
-    if (cents > user.account.balanceCents) return setAmountError(t("move.amountMax"));
     setQuoting(true);
     setAmountError(null);
     try {
@@ -150,7 +155,7 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
         void getQuote();
         return;
       }
-      if (e.code === "insufficient_funds") {
+      if (e.code === "wallet_not_connected") {
         setAmountError(e.message);
         setStage("amount");
         return;
@@ -160,17 +165,12 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
     }
   };
 
-  if (stage === "recipient" && user.account.balanceCents === 0) {
+  if (stage === "recipient" && modes.payments === "interledger" && !wallet) {
     return (
-      <div className="flex flex-col items-center rounded-2xl border border-dashed border-input p-6 text-center">
-        <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-primary">
-          <Landmark className="size-6" aria-hidden />
-        </span>
-        <h2 className="mt-3 font-display text-title font-semibold">{t("bank.emptySendTitle")}</h2>
-        <p className="mt-1 text-body text-muted-foreground">{t("bank.emptySendBody")}</p>
-        <ButtonLink href="/add-money" size="lg" className="mt-4">
-          {user.linkedBank ? t("bank.ctaDeposit") : t("bank.ctaConnect")}
-        </ButtonLink>
+      <div className="rounded-2xl border border-border/70 bg-card p-5">
+        <h2 className="font-display text-title font-semibold">{t("move.connectToSend")}</h2>
+        <p className="mb-4 mt-1 text-body text-muted-foreground">{t("wallet.connectBody")}</p>
+        <ConnectWallet returnTo="/move" />
       </div>
     );
   }
@@ -178,7 +178,6 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
   if (stage === "recipient") {
     return (
       <>
-        <WalletPicker purpose="send" className="mb-5" />
         <RecipientStep
           onPick={(r) => {
             setRecipient(r);
@@ -217,7 +216,7 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
           label={t("move.amountLabel")}
           sub={
             <span className="tnum">
-              {t("move.available", { amount: formatMoney(user.account.balanceCents) })}
+              {wallet ? t("move.fromWallet", { wallet: wallet.url.replace(/^https:\/\//, "") }) : t("move.simulatedSend")}
               {recipient.assetCode !== "USD" && cents > 0 && (
                 <span className="block text-caption">≈ {formatForeign(Math.round(cents * (FX_HINT[recipient.assetCode] ?? 1)), recipient.assetCode)} before fees</span>
               )}
@@ -267,7 +266,7 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
           className="mt-4"
         />
         <div className="mt-4">
-          <Keypad value={amount} onChange={(v) => { setAmount(v); setAmountError(null); }} maxCents={user.account.balanceCents} label={t("move.amountLabel")} />
+          <Keypad value={amount} onChange={(v) => { setAmount(v); setAmountError(null); }} maxCents={1_000_000} label={t("move.amountLabel")} />
         </div>
         <Button size="lg" className="mt-4" onClick={getQuote} loading={quoting} loadingText={t("move.gettingQuote")} disabled={cents === 0}>
           {t("move.review")}
@@ -287,7 +286,7 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
           <p className="break-all text-caption text-muted-foreground">{q.receiver.url}</p>
         </div>
         <dl className="divide-y divide-border rounded-2xl border border-border bg-card">
-          {q.senderWallet && wallets.length > 1 && <Row label={t("move.sendFrom")} value={wallets.find((w) => w.url === q.senderWallet)?.label ?? q.senderWallet} />}
+          {q.senderWallet && <Row label={t("move.sendFrom")} value={<span className="break-all">{q.senderWallet.replace(/^https:\/\//, "")}</span>} />}
           <Row label={t("move.youSend")} value={formatMoney(q.debitCents - q.feeCents)} />
           <Row label={t("move.fee")} value={formatMoney(q.feeCents)} />
           <Row label={t("move.totalCharged")} value={formatMoney(q.debitCents)} strong />
@@ -298,7 +297,7 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
           {note.trim() && <Row label={t("move.note")} value={note.trim()} />}
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <dt className="text-body text-muted-foreground">{t("move.via")}</dt>
-            <dd>{q.mode === "interledger" ? <Badge tone="info">{t("move.viaInterledger")}</Badge> : <SimulatedBadge label={quote.fellBack ? t("move.viaFallback") : modes.payments === "interledger" ? t("move.viaPractice") : t("move.viaMock")} />}</dd>
+            <dd>{q.mode === "interledger" ? <Badge tone="info">{t("move.viaInterledger")}</Badge> : <SimulatedBadge label={t("move.viaMock")} />}</dd>
           </div>
         </dl>
         <p className="text-center text-caption text-muted-foreground">{t("move.quoteExpires")}</p>
@@ -354,7 +353,7 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
           <p className="tnum mt-2 font-display text-display font-semibold">{formatForeign(tr.counterpart.value, tr.counterpart.currency)}</p>
           {result.paidBillId && <Badge tone="positive" className="mt-2">{t("budget.paid")} · {user.bills.find((b) => b.id === result.paidBillId)?.name}</Badge>}
         </div>
-        <TransferDetails transfer={tr} fellBack={result.fellBack} />
+        <TransferDetails transfer={tr} />
         <div className="space-y-2">
           <Button size="lg" onClick={reset}>
             {t("move.sendAnother")}
@@ -426,24 +425,47 @@ function SendingProgress({ reduced }: { reduced: boolean }) {
 }
 
 function RecipientStep({ onPick }: { onPick: (r: Recipient) => void }) {
-  const { user, sendFrom } = useAppState();
+  const { user, wallet } = useAppState();
+  const [query, setQuery] = useState("");
   const [address, setAddress] = useState("");
+  const [advanced, setAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [member, setMember] = useState<{ handle: string; user: Member | null } | null>(null);
 
-  const lookup = async (raw: string) => {
+  const q = query.trim().toLowerCase().replace(/^@/, "");
+  const people = user.contacts.filter(
+    (c) => !q || c.name.toLowerCase().includes(q) || handleFor(c.name).startsWith(q) || c.relationship.toLowerCase().includes(q),
+  );
+  const looksLikeAddress = /^(https:\/\/|\$)[^\s/]+\.[^\s]+/i.test(query.trim());
+  const looksLikeHandle = /^@?[\p{L}\p{N}]{2,24}$/u.test(query.trim());
+
+  // Other Sprout members are found by their exact @username, on the server.
+  useEffect(() => {
+    if (!looksLikeHandle) return;
+    const handle = q;
+    const timer = window.setTimeout(() => {
+      api<{ user: Member | null }>(`/api/users/lookup?handle=${encodeURIComponent(handle)}`)
+        .then((res) => setMember({ handle, user: res.user }))
+        .catch(() => setMember({ handle, user: null }));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [q, looksLikeHandle]);
+  const found = looksLikeHandle && member?.handle === q ? member.user : null;
+
+  const lookup = async (raw: string, name?: string) => {
     const value = raw.trim();
     if (!/^(https:\/\/|\$)[^\s/]+\.[^\s]+/i.test(value)) return setError(t("move.errInvalid"));
     setChecking(true);
     setError(null);
     try {
       const res = await api<{ wallet: { url: string; assetCode: string; publicName: string | null } }>(`/api/wallet/resolve?address=${encodeURIComponent(value)}`);
-      if (res.wallet.url === (sendFrom ?? user.profile.walletAddress)) return setError(t("move.errSelf"));
+      if (res.wallet.url === (wallet?.url ?? user.profile.walletAddress)) return setError(t("move.errSelf"));
       const known = user.contacts.find((c) => c.walletAddress === res.wallet.url);
       onPick({
         wallet: res.wallet.url,
-        name: known?.name ?? res.wallet.publicName ?? nameFromWallet(res.wallet.url),
+        name: name ?? known?.name ?? res.wallet.publicName ?? nameFromWallet(res.wallet.url),
         assetCode: res.wallet.assetCode,
         contactId: known?.id,
       });
@@ -466,50 +488,71 @@ function RecipientStep({ onPick }: { onPick: (r: Recipient) => void }) {
 
   return (
     <div className="pt-2">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void lookup(address);
+      <Field
+        label={t("move.recipientTitle")}
+        placeholder={t("move.searchPlaceholder")}
+        type="search"
+        autoComplete="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setError(null);
         }}
-        noValidate
-      >
-        <Field
-          label={t("move.recipientTitle")}
-          placeholder={t("move.recipientPlaceholder")}
-          hint={t("move.worksWith")}
-          type="url"
-          inputMode="url"
-          autoComplete="off"
-          autoCapitalize="none"
-          spellCheck={false}
-          value={address}
-          onChange={(e) => {
-            setAddress(e.target.value);
-            setError(null);
-          }}
-          error={error}
-        />
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <Button variant="secondary" onClick={paste}>
-            <ClipboardPaste className="size-4" aria-hidden />
-            {t("move.paste")}
-          </Button>
-          <Button variant="secondary" onClick={() => setScanOpen(true)}>
-            <QrCode className="size-4" aria-hidden />
-            {t("move.scan")}
-          </Button>
-          <Button type="submit" loading={checking} loadingText="…" disabled={!address.trim()}>
-            {t("move.next")}
-          </Button>
-        </div>
-      </form>
+        error={looksLikeAddress ? error : null}
+        trailing={<Search className="size-4 text-muted-foreground" aria-hidden />}
+      />
+      <Button variant="secondary" className="mt-3 w-full" onClick={() => setScanOpen(true)}>
+        <QrCode className="size-4" aria-hidden />
+        {t("move.scanQr")}
+      </Button>
 
-      <h2 className="mb-1 mt-6 text-body font-semibold">{t("move.people")}</h2>
-      {user.contacts.length === 0 ? (
-        <p className="text-body text-muted-foreground">{t("move.contactsEmpty")}</p>
+      <h2 className="mb-1 mt-6 text-body font-semibold">{q ? t("move.results") : t("move.people")}</h2>
+      {looksLikeAddress ? (
+        <button
+          type="button"
+          onClick={() => lookup(query)}
+          disabled={checking}
+          className="flex min-h-16 w-full items-center gap-3 py-2 text-left"
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
+            {checking ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Globe className="size-4" aria-hidden />}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-body font-medium">{t("move.payAddress")}</span>
+            <span className="block truncate text-caption text-muted-foreground">{query.trim()}</span>
+          </span>
+        </button>
+      ) : found ? (
+        <button
+          type="button"
+          onClick={() => lookup(found.walletAddress, found.name)}
+          disabled={checking}
+          className="flex min-h-16 w-full items-center gap-3 py-2 text-left"
+        >
+          <Avatar name={found.name} size="sm" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-body font-medium">{found.name}</span>
+            <span className="block truncate text-caption text-muted-foreground">
+              @{found.handle} · {t("move.sproutMember")}
+            </span>
+          </span>
+          {checking && <Loader2 className="size-4 animate-spin text-primary" aria-hidden />}
+        </button>
+      ) : people.length === 0 ? (
+        <p className="py-3 text-body text-muted-foreground">
+          {!q
+            ? t("move.contactsEmpty")
+            : looksLikeHandle
+              ? member?.handle === q
+                ? t("move.noUsername", { handle: `@${q}` })
+                : t("move.lookingFor", { handle: `@${q}` })
+              : t("move.noMatch", { q: query.trim() })}
+        </p>
       ) : (
         <ul className="divide-y divide-border">
-          {user.contacts.map((c) => (
+          {people.map((c) => (
             <li key={c.id}>
               <button
                 type="button"
@@ -519,7 +562,9 @@ function RecipientStep({ onPick }: { onPick: (r: Recipient) => void }) {
                 <Avatar name={c.name} size="sm" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-body font-medium">{c.name}</span>
-                  <span className="block truncate text-caption text-muted-foreground">{c.relationship}</span>
+                  <span className="block truncate text-caption text-muted-foreground">
+                    {atHandle(c.name)} · {c.relationship}
+                  </span>
                 </span>
                 {c.assetCode !== "USD" && (
                   <Badge tone="info" icon={<Globe className="size-3.5" aria-hidden />}>
@@ -531,6 +576,56 @@ function RecipientStep({ onPick }: { onPick: (r: Recipient) => void }) {
           ))}
         </ul>
       )}
+
+      <div className="mt-6 rounded-2xl border border-border/70 bg-card">
+        <button
+          type="button"
+          onClick={() => setAdvanced((o) => !o)}
+          aria-expanded={advanced}
+          className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-body font-semibold"
+        >
+          <span className="flex-1">{t("app.advanced")}</span>
+          <ChevronDown className={cn("size-5 text-muted-foreground transition-transform", advanced && "rotate-180")} aria-hidden />
+        </button>
+        {advanced && (
+          <div className="animate-fade-in space-y-4 px-4 pb-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void lookup(address);
+              }}
+              noValidate
+            >
+              <Field
+                label={t("move.recipientLabel")}
+                placeholder={t("move.recipientPlaceholder")}
+                hint={t("move.worksWith")}
+                type="url"
+                inputMode="url"
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                value={address}
+                onChange={(e) => {
+                  setAddress(e.target.value);
+                  setError(null);
+                }}
+                error={looksLikeAddress ? null : error}
+              />
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={paste}>
+                  <ClipboardPaste className="size-4" aria-hidden />
+                  {t("move.paste")}
+                </Button>
+                <Button variant="secondary" type="submit" loading={checking} loadingText="…" disabled={!address.trim()}>
+                  {t("move.next")}
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+
       <ScanSheet
         open={scanOpen}
         onOpenChange={setScanOpen}
@@ -543,7 +638,7 @@ function RecipientStep({ onPick }: { onPick: (r: Recipient) => void }) {
               return text;
             }
           })();
-          setAddress(to);
+          setQuery(to);
           void lookup(to);
         }}
       />

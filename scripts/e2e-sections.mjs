@@ -1,6 +1,7 @@
 // End-to-end check of Learn, Grow, and Budget in headless Chrome (no screenshots).
 // Usage: node scripts/e2e-sections.mjs  (dev server on BASE, default :3100)
 import { chromium } from "playwright";
+import { signUpAndOnboard } from "./e2e-helpers.mjs";
 
 const BASE = process.env.BASE ?? "http://localhost:3100";
 const browser = await chromium.launch({ channel: process.env.CHANNEL ?? "chrome" });
@@ -23,19 +24,20 @@ const step = async (name, fn) => {
   }
 };
 
-await step("log in as Sudeep", async () => {
-  await page.goto(`${BASE}/login`);
-  await page.getByRole("button", { name: /Sudeep Joshi/ }).click();
-  await page.waitForURL("**/home");
-  await page.getByText("Money from home arrived").locator("visible=true").first().waitFor();
+await step("sign up a new person", async () => {
+  await signUpAndOnboard(page, BASE, { fullName: "Kofi Mensah", preferred: "Kofi" });
 });
 
 // ── Learn ──
-await step("Learn shows the course with units and the Interledger lesson", async () => {
+await step("Learn: Continue learning on top, units expand on tap", async () => {
   await page.getByRole("navigation").getByRole("link", { name: "Learn" }).locator("visible=true").first().click();
   await page.waitForURL("**/learn");
-  await page.getByText("Starting from Zero").first().waitFor();
-  await page.getByText("How money moves: Interledger and Open Payments").first().waitFor();
+  await page.getByText("Continue learning").first().waitFor();
+  await page.getByRole("link", { name: "Start lesson" }).waitFor();
+  const unit = page.getByRole("button", { name: /How money moves/ });
+  if ((await unit.getAttribute("aria-expanded")) !== "false") throw new Error("units should start collapsed");
+  await unit.click();
+  await page.getByRole("link", { name: /Interledger/ }).first().waitFor();
 });
 
 await step("glossary search finds Interledger", async () => {
@@ -65,10 +67,10 @@ await step("play the Interledger lesson: cards → quiz → result with sources"
 });
 
 // ── Grow ──
-await step("Grow portfolio tab: practice banner, total value, challenges, graduate card", async () => {
+await step("Practice Investing: fake-money explainer, total value, challenges, graduate card", async () => {
   await page.goto(`${BASE}/grow`);
-  await page.getByText("Practice mode · Simulated · Not investment advice").waitFor();
-  await page.getByText("Total value").waitFor();
+  await page.getByText("Practice money = fake money for learning").waitFor();
+  await page.getByText("Practice portfolio value").waitFor();
   await page.getByText("Challenges").waitFor();
   await page.getByText("Graduate to real investing").waitFor();
 });
@@ -113,26 +115,21 @@ await step("holding shows on the asset page and in the portfolio", async () => {
 });
 
 // ── Budget ──
-await step("Budget shows summary, categories and bills", async () => {
+await step("Budget overview: summary and tabs; new account asks for limits", async () => {
   await page.goto(`${BASE}/budget`);
-  await page.getByText("Categories").first().waitFor();
-  await page.getByText("Bills").first().waitFor();
-  await page.getByText("Transactions").first().waitFor();
+  await page.getByText("left to spend across all categories").waitFor();
+  await page.getByText(/Set a monthly limit for each category/).waitFor();
+  for (const name of ["Overview", "Categories", "Bills", "Transactions"]) await page.getByRole("tab", { name }).waitFor();
 });
 
 await step("switch to semester and back", async () => {
   await page.getByRole("radio", { name: "Semester" }).click();
-  await page.getByText(/Fall|Spring|Semester/).first().waitFor();
+  await page.getByText(/Fall|Spring|Summer|Semester/).first().waitFor();
   await page.getByRole("radio", { name: "Monthly" }).click();
 });
 
-await step("show amounts in NPR", async () => {
-  await page.getByRole("switch", { name: /NPR/ }).click();
-  await page.getByText(/NPR|रू|Rs/).first().waitFor();
-  await page.getByRole("switch", { name: /NPR/ }).click();
-});
-
-await step("edit the Dining out limit to $150", async () => {
+await step("set the Dining out limit to $150", async () => {
+  await page.getByRole("tab", { name: "Categories" }).click();
   await page.getByRole("button", { name: /^Dining out\./ }).click();
   for (let i = 0; i < 8; i++) await page.getByRole("button", { name: "Delete" }).click();
   for (const k of ["1", "5", "0"]) await page.getByRole("button", { name: k, exact: true }).click();
@@ -141,19 +138,35 @@ await step("edit the Dining out limit to $150", async () => {
   await page.getByText("/ $150").first().waitFor();
 });
 
-await step("set aside the full amount for the first bill", async () => {
-  await page.getByRole("button", { name: /^Set aside for / }).first().click();
+await step("add a bill", async () => {
+  await page.getByRole("tab", { name: "Bills" }).click();
+  await page.getByText(/No upcoming bills/).waitFor();
+  await page.getByRole("button", { name: "Add a bill" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("What's the bill?").fill("Rent");
+  await dialog.getByLabel("Amount (USD)").fill("850");
+  const due = new Date(Date.now() + 10 * 864e5).toISOString().slice(0, 10);
+  await dialog.getByLabel("Due date").fill(due);
+  await dialog.getByRole("button", { name: "Rent", exact: true }).click();
+  await dialog.getByRole("button", { name: "Add a bill" }).click();
+  await page.getByText("Rent added").waitFor();
+  await page.locator("main").getByText("$850").first().waitFor();
+});
+
+await step("set aside the full amount, then remove the bill", async () => {
+  await page.getByRole("button", { name: "Set aside for Rent" }).click();
   await page.getByRole("button", { name: "Set aside full amount" }).click();
   await page.getByRole("button", { name: "Save" }).click();
   await page.getByText(/^Saved for /).waitFor();
+  await page.getByRole("button", { name: "Set aside for Rent" }).click();
+  await page.getByRole("button", { name: "Remove this bill" }).click();
+  await page.getByText("Rent removed").waitFor();
+  await page.getByText(/No upcoming bills/).waitFor();
 });
 
-await step("search and recategorize a transaction", async () => {
-  await page.getByRole("searchbox").fill("grocery");
-  const row = page.getByRole("button", { name: /Himalayan Grocery/ }).first();
-  await row.click();
-  await page.getByRole("radio", { name: "Dining out" }).click();
-  await page.getByText("Moved to Dining out").waitFor();
+await step("transactions tab is empty for a new account", async () => {
+  await page.getByRole("tab", { name: "Transactions" }).click();
+  if (await page.getByText("Himalayan Grocery").count()) throw new Error("sample transactions shown");
 });
 
 console.log(problems.length ? `\nProblems:\n  ${[...new Set(problems)].join("\n  ")}` : "\nNo browser errors.");

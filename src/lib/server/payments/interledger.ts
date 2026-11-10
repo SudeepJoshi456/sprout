@@ -1,10 +1,10 @@
 import "server-only";
-import { createPrivateKey, type KeyObject } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { createHash, createPrivateKey, randomBytes, type KeyObject } from "node:crypto";
+import { readFileSync } from "node:fs";
 import {
   createAuthenticatedClient,
   isFinalizedGrantWithAccessToken,
+  isPendingGrant,
   OpenPaymentsClientError,
   type AuthenticatedClient,
   type WalletAddress,
@@ -12,8 +12,7 @@ import {
 import { FX_PER_USD } from "@/data/fx";
 import type { WalletInfo } from "@/lib/types";
 import { config } from "../config";
-import { kvEnabled, kvGet, kvSet } from "../kv";
-import { hostOf, PaymentUserError, StepRecorder, type PaymentsProvider } from "./types";
+import { hostOf, PaymentUserError, StepRecorder, type OutgoingGrant, type PaymentsProvider } from "./types";
 
 /**
  * Real Open Payments on the Interledger test network
@@ -22,19 +21,11 @@ import { hostOf, PaymentUserError, StepRecorder, type PaymentsProvider } from ".
  * Flow per payment (see openpayments.dev and interledger/open-payments-snippets):
  *   quote():  resolve wallets → incoming-payment grant + incoming payment on the
  *             receiver → quote grant + quote on the sender
- *   execute(): outgoing payment using the long-lived grant created once by
- *             `npm run setup-grant` (interactive approval in the test wallet).
+ *   execute(): outgoing payment using the sender's own grant, which they
+ *             approved in their wallet when connecting it to Sprout.
  */
 
-const GRANT_FILE = join(config.dataDir, "grant.json");
-
-interface OutgoingGrant {
-  accessToken: string;
-  manageUrl: string;
-}
-
 let clientPromise: Promise<AuthenticatedClient> | null = null;
-const outgoingGrants: Record<string, OutgoingGrant> = {};
 
 function loadPrivateKey(): KeyObject {
   let pem: string | undefined;
@@ -49,12 +40,7 @@ function loadPrivateKey(): KeyObject {
 }
 
 export function interledgerConfigured() {
-  return Boolean(
-    config.op.clientWalletAddress &&
-      config.op.keyId &&
-      (config.op.privateKey || config.op.privateKeyPath) &&
-      config.op.senderWalletAddress,
-  );
+  return Boolean(config.op.clientWalletAddress && config.op.keyId && (config.op.privateKey || config.op.privateKeyPath));
 }
 
 async function client() {
@@ -72,58 +58,79 @@ async function client() {
   return clientPromise;
 }
 
+// ---- Connecting a person's own wallet (interactive GNAP grant) ---------------
+
+export interface PendingConnect {
+  wallet: string;
+  authServer: string;
+  assetCode: string;
+  assetScale: number;
+  capMinor: number;
+  nonce: string;
+  finishUri: string;
+  interactFinish: string;
+  continueUri: string;
+  continueToken: string;
+}
+
 /**
- * Each sending wallet has its own outgoing grant. The primary wallet keeps the
- * original locations (grant.json, OP_OUTGOING_ACCESS_TOKEN); others live in
- * .data/grants/<name>.json or OP_OUTGOING_GRANTS.
+ * Asks the wallet's auth server for a capped outgoing-payment grant. The
+ * owner approves it by logging in to their wallet, which also proves the
+ * wallet is theirs. Returns the approval link and what's needed to finish.
  */
-const isPrimary = (wallet: string) => wallet === config.op.senderWalletAddress;
-const grantKey = (wallet: string) => (isPrimary(wallet) ? "sprout:outgoing-grant" : `sprout:outgoing-grant:${wallet}`);
-export const grantFileFor = (wallet: string, dataDir = config.dataDir) =>
-  isPrimary(wallet) ? GRANT_FILE : join(dataDir, "grants", `${wallet.split("/").pop()}.json`);
-
-function envGrant(wallet: string): OutgoingGrant | null {
-  if (isPrimary(wallet) && config.op.outgoingAccessToken && config.op.outgoingManageUrl) {
-    return { accessToken: config.op.outgoingAccessToken, manageUrl: config.op.outgoingManageUrl };
-  }
-  return config.op.extraGrants[wallet] ?? null;
+export async function startWalletConnect(walletUrl: string, capCents: number, finishUri: string) {
+  const c = await client();
+  const wallet = await getWallet(walletUrl);
+  const capMinor = usdToAsset(capCents, wallet.assetCode);
+  const nonce = randomBytes(16).toString("hex");
+  const grant = await c.grant.request(
+    { url: wallet.authServer },
+    {
+      access_token: {
+        access: [
+          {
+            type: "outgoing-payment",
+            actions: ["create", "read", "list"],
+            identifier: wallet.id,
+            limits: { debitAmount: { value: fromMinor(capMinor, wallet.assetScale), assetCode: wallet.assetCode, assetScale: wallet.assetScale } },
+          },
+        ],
+      },
+      interact: { start: ["redirect"], finish: { method: "redirect", uri: finishUri, nonce } },
+    },
+  );
+  if (!isPendingGrant(grant)) throw new Error("Expected an interactive grant");
+  const pending: PendingConnect = {
+    wallet: wallet.id,
+    authServer: wallet.authServer,
+    assetCode: wallet.assetCode,
+    assetScale: wallet.assetScale,
+    capMinor,
+    nonce,
+    finishUri,
+    interactFinish: grant.interact.finish,
+    continueUri: grant.continue.uri,
+    continueToken: grant.continue.access_token.value,
+  };
+  return { redirect: grant.interact.redirect, pending };
 }
 
-/** Whether Sprout holds an approved spending grant for this wallet. */
-export function canSendFrom(wallet: string) {
-  return config.op.wallets.some((w) => w.url === wallet) && (existsSync(grantFileFor(wallet)) || Boolean(envGrant(wallet)));
+/** Verifies the redirect really came from the wallet's auth server, then collects the token. */
+export async function finishWalletConnect(p: PendingConnect, interactRef: string, hash: string): Promise<OutgoingGrant> {
+  // openpayments.dev/identity/hash-verification
+  const digest = createHash("sha256").update(`${p.nonce}\n${p.interactFinish}\n${interactRef}\n${p.authServer}`).digest();
+  const expected = [digest.toString("base64"), digest.toString("base64url")].map((h) => h.replace(/=+$/, ""));
+  if (!expected.includes(hash.replace(/=+$/, ""))) throw new PaymentUserError("approval_invalid", "That approval didn't come from your wallet. Please try connecting again.");
+  const c = await client();
+  const finalized = await c.grant.continue({ url: p.continueUri, accessToken: p.continueToken }, { interact_ref: interactRef });
+  if (!isFinalizedGrantWithAccessToken(finalized)) throw new Error("Grant did not return an access token");
+  return { accessToken: finalized.access_token.value, manageUrl: finalized.access_token.manage };
 }
 
-async function getOutgoingGrant(wallet: string): Promise<OutgoingGrant> {
-  // Rotation invalidates the old token, so every instance must read the latest one.
-  if (kvEnabled) {
-    const stored = await kvGet(grantKey(wallet));
-    if (stored) return (outgoingGrants[wallet] = JSON.parse(stored) as OutgoingGrant);
-  }
-  // Re-read the file each time: scripts (setup-grant, pay-incoming) may have rotated the token.
-  const file = grantFileFor(wallet);
-  if (existsSync(file)) {
-    try {
-      return (outgoingGrants[wallet] = JSON.parse(readFileSync(file, "utf8")) as OutgoingGrant);
-    } catch {
-      /* fall through to memory/env */
-    }
-  }
-  const known = outgoingGrants[wallet] ?? envGrant(wallet);
-  if (known) return (outgoingGrants[wallet] = known);
-  throw new Error(`No outgoing payment grant for ${wallet}. Run \`npm run setup-grant\` first.`);
-}
-
-async function persistGrant(wallet: string, g: OutgoingGrant) {
-  outgoingGrants[wallet] = g;
-  if (kvEnabled) await kvSet(grantKey(wallet), JSON.stringify(g));
-  try {
-    const file = grantFileFor(wallet);
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify(g));
-  } catch {
-    /* memory is enough for this process */
-  }
+/** Lets go of a grant when someone disconnects their wallet. */
+export async function revokeGrant(g: OutgoingGrant) {
+  const c = await client();
+  await c.grant.cancel({ url: g.manageUrl, accessToken: g.accessToken }).catch(() => undefined);
 }
 
 async function getWallet(url: string): Promise<WalletAddress> {
@@ -247,6 +254,45 @@ export async function listOwnIncomingPayments(walletUrl: string): Promise<OwnInc
   });
 }
 
+export interface OwnOutgoingPayment {
+  url: string;
+  createdAt: string;
+  failed: boolean;
+  receiver: string;
+  /** What left the wallet so far, in the wallet's own currency (minor units, scale 2). */
+  sent: { value: number; currency: string };
+  description: string | null;
+}
+
+/** Most recent payments sent from the user's wallet, read with their own grant (needs the "list" action). */
+export async function listOwnOutgoingPayments(walletUrl: string, grants: { get(): Promise<OutgoingGrant>; save(g: OutgoingGrant): Promise<void> }): Promise<OwnOutgoingPayment[]> {
+  const c = await client();
+  const wallet = await getWallet(walletUrl);
+  const list = (accessToken: string) => c.outgoingPayment.list({ url: wallet.resourceServer, walletAddress: wallet.id, accessToken }, { first: 50, "wallet-address": wallet.id });
+  let grant = await grants.get();
+  let page;
+  try {
+    page = await list(grant.accessToken);
+  } catch (err) {
+    if (!(err instanceof OpenPaymentsClientError && (err.status === 401 || err.status === 403))) throw err;
+    const rotated = await c.token.rotate({ url: grant.manageUrl, accessToken: grant.accessToken });
+    grant = { accessToken: rotated.access_token.value, manageUrl: rotated.access_token.manage };
+    await grants.save(grant);
+    page = await list(grant.accessToken);
+  }
+  return page.result.map((op) => {
+    const desc = (op.metadata as { description?: unknown } | undefined)?.description;
+    return {
+      url: op.id,
+      createdAt: op.createdAt,
+      failed: op.failed ?? false,
+      receiver: op.receiver,
+      sent: { value: toMinor(op.sentAmount.value, op.sentAmount.assetScale), currency: op.sentAmount.assetCode },
+      description: typeof desc === "string" && desc.trim() ? desc.trim() : null,
+    };
+  });
+}
+
 export const interledgerProvider: PaymentsProvider = {
   mode: "interledger",
 
@@ -357,11 +403,14 @@ export const interledgerProvider: PaymentsProvider = {
     };
   },
 
-  async execute({ externalQuoteId, senderWallet, idempotencyKey, note }) {
+  async execute({ externalQuoteId, senderWallet, idempotencyKey, note, grants }) {
     if (!externalQuoteId) throw new Error("Missing Open Payments quote id");
+    if (!senderWallet || !grants) throw new Error("Sending needs the account holder's own wallet grant");
     const c = await client();
     const rec = new StepRecorder(false);
-    const sender = await getWallet(senderWallet ?? config.op.senderWalletAddress!);
+    const sender = await getWallet(senderWallet);
+    const getOutgoingGrant = () => grants.get();
+    const persistGrant = (g: OutgoingGrant) => grants.save(g);
     const create = (accessToken: string) =>
       c.outgoingPayment.create(
         { url: sender.resourceServer, accessToken },
@@ -371,7 +420,7 @@ export const interledgerProvider: PaymentsProvider = {
     let grant = await rec.run(
       "outgoing-grant",
       "Use the account holder's approved spending grant",
-      async () => getOutgoingGrant(sender.id),
+      async () => getOutgoingGrant(),
       (g) => ({
         detail: "Sending needs the account holder's consent. They approved a capped outgoing-payment grant once in their wallet (interactive GNAP grant); Sprout uses that token.",
         server: hostOf(g.manageUrl),
@@ -387,7 +436,7 @@ export const interledgerProvider: PaymentsProvider = {
           // Expired token (the test network answers 403 "Inactive Token"): rotate once and retry.
           if (err instanceof OpenPaymentsClientError && (err.status === 401 || err.status === 403)) {
             // Another instance may already have rotated it; use theirs if so.
-            const latest = await getOutgoingGrant(sender.id);
+            const latest = await getOutgoingGrant();
             if (latest.accessToken !== grant.accessToken) {
               grant = latest;
               return create(grant.accessToken);
@@ -395,9 +444,9 @@ export const interledgerProvider: PaymentsProvider = {
             try {
               const rotated = await c.token.rotate({ url: grant.manageUrl, accessToken: grant.accessToken });
               grant = { accessToken: rotated.access_token.value, manageUrl: rotated.access_token.manage };
-              await persistGrant(sender.id, grant);
+              await persistGrant(grant);
             } catch (rotateErr) {
-              const after = await getOutgoingGrant(sender.id);
+              const after = await getOutgoingGrant();
               if (after.accessToken === grant.accessToken) throw rotateErr;
               grant = after;
             }

@@ -30,18 +30,22 @@
   --positive-soft: #dff0e3;
   --negative: #b42b2f; /* darkened from #d73337 (4.3:1) to 5.7:1 */
   --negative-soft: #f8e1df;
-  --warning: #8a5a00; /* calm amber for "heads up", never red */
-  --warning-soft: #fbefd5;
-  --info: #1f6f8b;
-  --info-soft: #dceef4;
-  --practice: #5b3fa0; /* practice/simulated badge */
-  --practice-soft: #ece6f8;
+  /*
+   * Brand palette: Sprout green + lime on a warm neutral. Every other role is a
+   * shade of those; red is kept only for real problems (overspending, errors).
+   */
+  --warning: #5f5a00; /* deep lime for "heads up", never red; 6.6:1 on warning-soft */
+  --warning-soft: #f1f0c2;
+  --info: #137d41;
+  --info-soft: #dff0e3;
+  --practice: #4d5200; /* practice money: lime family, 7:1 on practice-soft */
+  --practice-soft: #eef0bd;
 
   --chart-1: #137d41;
   --chart-2: #c9cb2f;
-  --chart-3: #ed9658;
-  --chart-4: #2c94b0;
-  --chart-5: #bd413f;
+  --chart-3: #6fb287;
+  --chart-4: #0b4f29;
+  --chart-5: #a3a89a;
 
   --shadow-card: 0 1px 2px rgb(20 29 22 / 0.04), 0 4px 16px rgb(20 29 22 / 0.05);
   --shadow-raised: 0 8px 32px rgb(20 29 22 / 0.14);
@@ -70,18 +74,18 @@
   --positive-soft: #183522;
   --negative: #ff8a80;
   --negative-soft: #3a1b1a;
-  --warning: #f0b956;
-  --warning-soft: #33280f;
-  --info: #79c8e2;
-  --info-soft: #11303a;
-  --practice: #c4b0f5;
-  --practice-soft: #2a2140;
+  --warning: #e3e36a;
+  --warning-soft: #2c2d0e;
+  --info: #5cc77a;
+  --info-soft: #183522;
+  --practice: #e3e36a;
+  --practice-soft: #2c2d0e;
 
   --chart-1: #4cb86a;
   --chart-2: #dfe044;
-  --chart-3: #f7a062;
-  --chart-4: #43a6c3;
-  --chart-5: #d55753;
+  --chart-3: #9fd8b0;
+  --chart-4: #2b7a46;
+  --chart-5: #8a8f82;
 
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
   --shadow-raised: 0 8px 32px rgb(0 0 0 / 0.5);
@@ -239,6 +243,23 @@
   .no-scrollbar {
     scrollbar-width: none;
   }
+}
+
+/* Vertical scrolling only: nothing may push the page sideways. */
+html,
+body {
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+main {
+  overflow-x: hidden;
+}
+
+/* iOS Safari zooms (and then pans sideways) when a focused field's text is under 16px. */
+input,
+select,
+textarea {
+  font-size: max(16px, 1em);
 }
 
 /* Keep toasts inside the phone frame on desktop. */

@@ -10,8 +10,9 @@ import { useBootstrap } from "@/lib/client/hooks";
 import { t } from "@/i18n";
 
 /**
- * Signed-in area with the bottom tab bar. Loads state once; people who
- * haven't onboarded are sent to the Welcome screen.
+ * Signed-in area with the bottom tab bar. Loads state once; signed-out
+ * people are sent to Log in (by the API client) and people who haven't
+ * finished their profile go to onboarding.
  */
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { state, error, retry } = useBootstrap();
@@ -19,7 +20,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const needsOnboarding = state && !state.user.profile.onboarded;
 
   useEffect(() => {
-    if (needsOnboarding) router.replace("/");
+    if (needsOnboarding) router.replace("/onboarding");
   }, [needsOnboarding, router]);
 
   let body: ReactNode;

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Info } from "lucide-react";
 import { Screen } from "@/components/shell/screen";
 import { Segmented } from "@/components/ui/segmented";
-import { Badge, SimulatedBadge } from "@/components/ui/badge";
 import { SendFlow } from "@/components/move/send-flow";
 import { ReceivePanel, RequestPanel } from "@/components/move/receive-panels";
 import { InterledgerSheet } from "@/components/move/payment-trace";
@@ -14,7 +13,7 @@ import { t } from "@/i18n";
 
 type Tab = "send" | "receive" | "request";
 
-/** ★ Move: send, receive, and request money over Interledger / Open Payments. */
+/** ★ Send & Receive: pay people, get paid, and request money (Interledger / Open Payments underneath). */
 export default function MovePage() {
   return (
     <Suspense>
@@ -31,7 +30,6 @@ function Move() {
   const [tab, setTab] = useState<Tab>(initial === "receive" || initial === "request" ? initial : "send");
   const [infoOpen, setInfoOpen] = useState(false);
   const [flowKey, setFlowKey] = useState(0);
-  const live = modes.payments === "interledger";
 
   const changeTab = (next: Tab) => {
     setTab(next);
@@ -53,13 +51,7 @@ function Move() {
         </button>
       }
       banner={
-        <div className="space-y-3 px-4 pb-3">
-          <div className="flex items-center gap-2">
-            {live ? <Badge tone="info">{t("move.liveBadge")}</Badge> : <SimulatedBadge />}
-            <button type="button" onClick={() => setInfoOpen(true)} className="min-h-8 text-caption font-semibold text-primary underline-offset-4 hover:underline">
-              {t("move.howInfo")}
-            </button>
-          </div>
+        <div className="px-4 pb-3">
           <Segmented<Tab>
             label={t("move.modeTabs")}
             value={tab}

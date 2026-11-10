@@ -2,17 +2,16 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { CheckCircle2, ChevronRight, Compass, Flame, PlayCircle, Search } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronRight, Clock, Compass, Flame, PlayCircle, Search } from "lucide-react";
+import { ButtonLink } from "@/components/ui/button";
 import { Screen } from "@/components/shell/screen";
 import { Segmented } from "@/components/ui/segmented";
-import { Card } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/progress";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { Icon } from "@/components/ui/icon";
 import { Field } from "@/components/ui/field";
 import { TermBody } from "@/components/ui/term";
-import { LessonCard } from "@/components/learn/lesson-card";
-import { COURSE_SUBTITLE, COURSE_TITLE, COURSE_UNITS } from "@/data/course";
+import { COURSE_TITLE, COURSE_UNITS } from "@/data/course";
 import { GLOSSARY } from "@/data/glossary";
 import { useAppState, useResource } from "@/lib/client/hooks";
 import { cn } from "@/lib/format";
@@ -51,101 +50,127 @@ export default function LearnPage() {
 }
 
 function Course() {
-  const { persona, user } = useAppState();
-  const { data, loading } = useResource<LessonsResponse>(`/api/lessons?p=${persona}`);
+  const { userId, user } = useAppState();
+  const { data, loading } = useResource<LessonsResponse>(`/api/lessons?u=${userId}`);
   const byId = useMemo(() => new Map((data?.lessons ?? []).map((l) => [l.id, l])), [data]);
+  const [openUnit, setOpenUnit] = useState<string | null>(null);
 
   if (loading || !data) {
     return (
       <div className="space-y-3 pt-2">
-        <SkeletonCard lines={2} />
         <SkeletonCard lines={3} />
-        <SkeletonCard lines={3} />
+        <SkeletonCard lines={1} />
+        <SkeletonCard lines={1} />
       </div>
     );
   }
 
   const done = data.lessons.filter((l) => l.completed).length;
   const total = data.lessons.length;
-  const picks = data.lessons.filter((l) => !l.completed && l.reason).slice(0, 2);
+  const units = COURSE_UNITS.map((unit) => ({ ...unit, lessons: unit.lessonIds.map((id) => byId.get(id)).filter((l): l is LessonSummary => Boolean(l)) }));
+  const next = units.flatMap((u) => u.lessons).find((l) => !l.completed);
+  const nextUnit = next ? units.findIndex((u) => u.lessons.some((l) => l.id === next.id)) : -1;
   const tourDone = user.learning.walkthroughs.includes("stock-page");
 
   return (
     <div className="space-y-6 pt-2">
-      <Card className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">{t("learn.courseLabel")}</p>
-            <h2 className="font-display text-title font-semibold">{COURSE_TITLE}</h2>
-          </div>
-          <span className={cn("inline-flex items-center gap-1 rounded-full px-3 py-1 text-caption font-semibold", data.streak > 0 ? "bg-warning-soft text-warning" : "bg-muted text-muted-foreground")}>
+      <section aria-labelledby="continue" className="rounded-2xl border border-primary/25 bg-card p-5 shadow-card">
+        <p id="continue" className="text-caption font-semibold uppercase tracking-wide text-primary">
+          {t("learn.continue")}
+        </p>
+        {next ? (
+          <>
+            <p className="mt-1 text-caption text-muted-foreground">
+              {t("learn.unit", { n: nextUnit + 1 })} · {units[nextUnit].title}
+            </p>
+            <h2 className="mt-1 font-display text-title font-semibold leading-snug">{next.title}</h2>
+            <p className="mt-1 text-body text-muted-foreground">{next.summary}</p>
+            <p className="mt-2 flex items-center gap-1.5 text-caption text-muted-foreground">
+              <Clock className="size-3.5" aria-hidden />
+              {t("learn.minutes", { n: next.minutes })}
+              {next.reason && <span>· {next.reason}</span>}
+            </p>
+            <ButtonLink href={`/learn/${next.id}`} size="lg" className="mt-4">
+              <PlayCircle className="size-5" aria-hidden />
+              {t("learn.startLessonCta")}
+            </ButtonLink>
+          </>
+        ) : (
+          <p className="mt-1 text-body">{t("home.allLessonsDone")}</p>
+        )}
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-3">
+          <p className="tnum text-caption text-muted-foreground">{t("learn.progress", { done, total })}</p>
+          <span className={cn("inline-flex items-center gap-1 text-caption font-semibold", data.streak > 0 ? "text-primary" : "text-muted-foreground")}>
             <Flame className="size-4" aria-hidden />
             {data.streak > 0 ? t("learn.streak", { n: data.streak }) : t("learn.streakZero")}
           </span>
         </div>
-        <p className="text-body text-muted-foreground">{COURSE_SUBTITLE}</p>
-        <ProgressBar value={done / total} label={t("learn.progress", { done, total })} />
-        <p className="tnum text-caption text-muted-foreground">{t("learn.progress", { done, total })}</p>
-      </Card>
+        <ProgressBar className="mt-2" value={done / total} label={t("learn.progress", { done, total })} />
+      </section>
 
-      {picks.length > 0 && (
-        <section aria-labelledby="for-you">
-          <h2 id="for-you" className="mb-2 px-1 text-body font-semibold">
-            {t("learn.forYou")}
+      <section aria-labelledby="units-title" className="space-y-3">
+        <div className="px-1">
+          <h2 id="units-title" className="text-body font-semibold">
+            {COURSE_TITLE}
           </h2>
-          <div className="space-y-3">
-            {picks.map((l, i) => (
-              <LessonCard key={l.id} lesson={l} featured={i === 0} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {COURSE_UNITS.map((unit, ui) => {
-        const lessons = unit.lessonIds.map((id) => byId.get(id)).filter((l): l is LessonSummary => Boolean(l));
-        const unitDone = lessons.filter((l) => l.completed).length;
-        const nextId = lessons.find((l) => !l.completed)?.id;
-        return (
-          <section key={unit.id} aria-labelledby={`unit-${unit.id}`} className="rounded-2xl border border-border/70 bg-card shadow-card">
-            <div className="flex items-start gap-3 p-4 pb-2">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-                <Icon name={unit.icon} className="size-6" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">{t("learn.unit", { n: ui + 1 })}</p>
-                <h2 id={`unit-${unit.id}`} className="text-title font-semibold leading-snug">
-                  {unit.title}
-                </h2>
-                <p className="text-body text-muted-foreground">{unit.summary}</p>
-              </div>
-              <span className="tnum shrink-0 text-caption font-semibold text-muted-foreground">
-                {unitDone}/{lessons.length}
-              </span>
+          <p className="text-caption text-muted-foreground">{t("learn.unitsHint")}</p>
+        </div>
+        {units.map((unit, ui) => {
+          const unitDone = unit.lessons.filter((l) => l.completed).length;
+          const expanded = openUnit === unit.id;
+          return (
+            <div key={unit.id} className="rounded-2xl border border-border/70 bg-card shadow-card">
+              <h3>
+                <button
+                  type="button"
+                  onClick={() => setOpenUnit(expanded ? null : unit.id)}
+                  aria-expanded={expanded}
+                  aria-controls={`unit-${unit.id}`}
+                  className="flex min-h-16 w-full items-center gap-3 p-4 text-left"
+                >
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-positive-soft text-primary">
+                    {unitDone === unit.lessons.length ? <CheckCircle2 className="size-5" aria-hidden /> : <Icon name={unit.icon} className="size-5" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-caption font-semibold uppercase tracking-wide text-muted-foreground">{t("learn.unit", { n: ui + 1 })}</span>
+                    <span className="block font-sans text-body font-semibold leading-snug">{unit.title}</span>
+                  </span>
+                  <span className="tnum shrink-0 text-caption font-semibold text-muted-foreground">
+                    {unitDone}/{unit.lessons.length}
+                  </span>
+                  <ChevronDown className={cn("size-5 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} aria-hidden />
+                </button>
+              </h3>
+              {expanded && (
+                <div id={`unit-${unit.id}`} className="animate-fade-in">
+                  <p className="px-4 text-caption text-muted-foreground">{unit.summary}</p>
+                  <ol className="divide-y divide-border/70 px-2 pb-2 pt-1">
+                    {unit.lessons.map((l) => (
+                      <li key={l.id}>
+                        <Link href={`/learn/${l.id}`} className="flex min-h-14 items-center gap-3 rounded-xl px-2 py-2 hover:bg-muted/60">
+                          {l.completed ? (
+                            <CheckCircle2 className="size-6 shrink-0 text-positive" aria-label={t("learn.done")} />
+                          ) : (
+                            <PlayCircle className={cn("size-6 shrink-0", l.id === next?.id ? "text-primary" : "text-muted-foreground")} aria-hidden />
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-body font-medium leading-snug">{l.title}</span>
+                            <span className="block text-caption text-muted-foreground">
+                              {t("learn.minutes", { n: l.minutes })}
+                              {l.id === next?.id ? ` · ${t("learn.upNext")}` : ""}
+                            </span>
+                          </span>
+                          <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+                        </Link>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
             </div>
-            <ol className="divide-y divide-border/70 px-2 pb-2">
-              {lessons.map((l) => (
-                <li key={l.id}>
-                  <Link href={`/learn/${l.id}`} className="flex min-h-14 items-center gap-3 rounded-xl px-2 py-2 hover:bg-muted/60">
-                    {l.completed ? (
-                      <CheckCircle2 className="size-6 shrink-0 text-positive" aria-label={t("learn.done")} />
-                    ) : (
-                      <PlayCircle className={cn("size-6 shrink-0", l.id === nextId ? "text-primary" : "text-muted-foreground")} aria-hidden />
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-body font-medium leading-snug">{l.title}</span>
-                      <span className="block text-caption text-muted-foreground">
-                        {t("learn.minutes", { n: l.minutes })}
-                        {l.id === nextId && !l.completed ? ` · ${t("learn.upNext")}` : ""}
-                      </span>
-                    </span>
-                    <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
-                  </Link>
-                </li>
-              ))}
-            </ol>
-          </section>
-        );
-      })}
+          );
+        })}
+      </section>
 
       <section aria-labelledby="walks">
         <h2 id="walks" className="mb-2 px-1 text-body font-semibold">

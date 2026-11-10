@@ -1,4 +1,7 @@
 /**
+ * Terminal testing tool only (used by pay-incoming and audit-interledger).
+ * The app itself asks each person to connect and approve their own wallet.
+ *
  * Sets up real Interledger sending for a wallet: asks the wallet's auth server
  * for an outgoing-payment grant with a spending cap, which the wallet's owner
  * approves in the browser (interactive GNAP grant).
@@ -14,7 +17,7 @@
  *   npm run setup-grant -- --finish "http://localhost:3999/callback?..." --wallet <same wallet>
  *
  * Saves the token to .data/grant.json (your primary wallet) or
- * .data/grants/<name>.json (others), and prints env lines for Vercel.
+ * .data/grants/<name>.json (others).
  * Needs in .env: OP_CLIENT_WALLET_ADDRESS, OP_KEY_ID, OP_PRIVATE_KEY_PATH (or OP_PRIVATE_KEY).
  */
 import { createHash, createPrivateKey, randomBytes } from "node:crypto";
@@ -84,12 +87,6 @@ async function main() {
     writeFileSync(grantFile, JSON.stringify(saved, null, 2));
     rmSync(pendingFile, { force: true });
     console.log(`\nApproved. Saved ${grantFile}.`);
-    if (isPrimary) {
-      console.log("For Vercel, set OP_OUTGOING_ACCESS_TOKEN and OP_OUTGOING_MANAGE_URL from that file.");
-    } else {
-      console.log(`For Vercel, add this wallet to OP_OUTGOING_GRANTS (JSON keyed by "${walletUrl}").`);
-      console.log(`Also make sure ${walletUrl} is listed in OP_WALLETS.`);
-    }
   };
 
   const finishUrl = flag("finish");

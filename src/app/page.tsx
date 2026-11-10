@@ -33,7 +33,7 @@ export default function Welcome() {
         ))}
       </ul>
       <div className="space-y-2">
-        <ButtonLink href="/onboarding" size="lg">
+        <ButtonLink href="/signup" size="lg">
           {t("welcome.getStarted")}
         </ButtonLink>
         <ButtonLink href="/login" size="lg" variant="ghost">

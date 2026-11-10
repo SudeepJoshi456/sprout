@@ -20,8 +20,8 @@ const CARD_MS = 7000;
 /** ★ Lesson player: story cards → quick check → result. */
 export default function LessonPage() {
   const { id } = useParams<{ id: string }>();
-  const { persona } = useAppState();
-  const { data, error, reload } = useResource<LessonResponse>(`/api/lessons/${id}?p=${persona}`);
+  const { userId } = useAppState();
+  const { data, error, reload } = useResource<LessonResponse>(`/api/lessons/${id}?u=${userId}`);
   const router = useRouter();
 
   return (
@@ -241,8 +241,8 @@ function Quiz({ lesson, onDone }: { lesson: LessonContent; onDone: (score: numbe
 }
 
 function Result({ lesson, score, onReplay }: { lesson: LessonContent; score: number; onReplay: () => void }) {
-  const { persona } = useAppState();
-  const { data } = useResource<LessonsResponse>(`/api/lessons?p=${persona}`);
+  const { userId } = useAppState();
+  const { data } = useResource<LessonsResponse>(`/api/lessons?u=${userId}`);
   const [saveError, setSaveError] = useState<string | null>(null);
   const sent = useRef(false);
   const sources = LESSON_SOURCES[lesson.id] ?? [];

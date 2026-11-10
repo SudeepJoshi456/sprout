@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Suspense, useDeferredValue, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CircleCheck, GraduationCap, Lock, Search, Sprout } from "lucide-react";
+import { CircleCheck, GraduationCap, Lock, Search, ShieldCheck, Sprout } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Screen } from "@/components/shell/screen";
 import { Segmented } from "@/components/ui/segmented";
 import { Card, CardHeader, SectionTitle } from "@/components/ui/card";
@@ -27,7 +28,7 @@ import { t } from "@/i18n";
 type Tab = "portfolio" | "explore";
 const RANGES: ChartRange[] = ["1D", "1W", "1M", "1Y"];
 
-/** Grow: practice investing with Sprout Seeds (play money). */
+/** Grow: practice investing with practice money (fake money for learning). */
 export default function GrowPage() {
   return (
     <Suspense>
@@ -73,9 +74,9 @@ function Grow() {
 }
 
 function PortfolioTab({ onExplore }: { onExplore: () => void }) {
-  const { user, persona } = useAppState();
+  const { user, userId } = useAppState();
   const [range, setRange] = useState<ChartRange>("1M");
-  const { data, loading } = useResource<PortfolioResponse>(`/api/portfolio?range=${range}&p=${persona}`);
+  const { data, loading } = useResource<PortfolioResponse>(`/api/portfolio?range=${range}&u=${userId}`);
   const coach = user.coach.find((c) => c.kind === "trade" && !c.dismissed);
 
   if (loading && !data) {
@@ -93,6 +94,25 @@ function PortfolioTab({ onExplore }: { onExplore: () => void }) {
 
   return (
     <div className="space-y-4">
+      <section aria-labelledby="pm-explain" className="rounded-2xl border border-practice/25 bg-practice-soft p-4">
+        <div className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-card text-practice">
+            <ShieldCheck className="size-5" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h2 id="pm-explain" className="font-sans text-body font-semibold text-foreground">
+              {t("grow.explainTitle")}
+            </h2>
+            <p className="mt-0.5 text-body text-foreground/85">{t("grow.explainBody")}</p>
+          </div>
+        </div>
+        {empty && (
+          <Button size="lg" className="mt-3" onClick={onExplore}>
+            {t("grow.explainCta")}
+          </Button>
+        )}
+      </section>
+
       <Card aria-labelledby="pf-total" className="p-5">
         <div className="flex items-center justify-between">
           <h2 id="pf-total" className="text-body text-muted-foreground">
@@ -152,9 +172,6 @@ function PortfolioTab({ onExplore }: { onExplore: () => void }) {
             </span>
             <div>
               <p className="text-body text-muted-foreground">{t("grow.holdingsEmpty")}</p>
-              <button type="button" onClick={onExplore} className="mt-3 min-h-11 rounded-xl bg-secondary px-4 text-body font-semibold text-secondary-foreground">
-                {t("grow.holdingsEmptyCta")}
-              </button>
             </div>
           </div>
         ) : (

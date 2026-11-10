@@ -3,15 +3,15 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
-import { CircleCheck, Copy, Link2, Share2 } from "lucide-react";
+import { ChevronDown, CircleCheck, Copy, Link2, Share2 } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { AmountDisplay, amountToCents, Keypad, QuickChips } from "@/components/ui/keypad";
 import { TransferRow } from "@/components/money/rows";
-import { WalletPicker } from "./wallet-picker";
 import { api, ApiClientError } from "@/lib/client/api";
 import { useAppState } from "@/lib/client/hooks";
 import { formatDate, formatMoney } from "@/lib/format";
+import { atHandle } from "@/lib/handles";
 import type { PaymentRequest } from "@/lib/types";
 import { t } from "@/i18n";
 
@@ -71,8 +71,9 @@ function ListeningPill({ live }: { live: boolean }) {
 }
 
 export function ReceivePanel() {
-  const { user, modes } = useAppState();
+  const { user, modes, handle: myHandle } = useAppState();
   const live = modes.receiving === "interledger";
+  const [advanced, setAdvanced] = useState(false);
   const wallet = user.profile.walletAddress;
   if (!wallet) {
     return (
@@ -85,27 +86,41 @@ export function ReceivePanel() {
     );
   }
   const incoming = user.transfers.filter((tr) => tr.direction === "in");
+  const handle = myHandle ? `@${myHandle}` : atHandle(user.profile.preferredName || user.profile.fullName);
   return (
     <div className="space-y-5 pt-2">
       <div className="text-center">
-        <h2 className="font-display text-title font-semibold">{t("move.receiveTitle")}</h2>
-        <p className="text-body text-muted-foreground">{t("move.receiveSub")}</p>
+        <h2 className="text-body text-muted-foreground">{t("move.receiveTitle")}</h2>
+        <p className="font-display text-headline font-semibold">{handle}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t("move.receiveSub")}</p>
         <ListeningPill live={live} />
       </div>
-      <WalletPicker purpose="receive" />
       <QrCard value={wallet} alt={t("move.qrAlt")} />
-      <p className="break-all rounded-xl bg-muted px-3 py-2 text-center font-mono text-body">{wallet}</p>
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="secondary" onClick={() => copy(wallet)}>
-          <Copy className="size-4" aria-hidden />
-          {t("move.copyAddress")}
-        </Button>
-        <Button variant="secondary" onClick={() => share(wallet)}>
-          <Share2 className="size-4" aria-hidden />
-          {t("app.share")}
-        </Button>
+      <Button size="lg" onClick={() => share(t("move.shareUsernameText", { handle }), wallet)}>
+        <Share2 className="size-5" aria-hidden />
+        {t("move.shareUsername")}
+      </Button>
+      <div className="rounded-2xl border border-border/70 bg-card">
+        <button
+          type="button"
+          onClick={() => setAdvanced((o) => !o)}
+          aria-expanded={advanced}
+          className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-body font-semibold"
+        >
+          <span className="flex-1">{t("app.advanced")}</span>
+          <ChevronDown className={`size-5 text-muted-foreground transition-transform ${advanced ? "rotate-180" : ""}`} aria-hidden />
+        </button>
+        {advanced && (
+          <div className="animate-fade-in space-y-3 px-4 pb-4">
+            <p className="text-caption text-muted-foreground">{t("move.addressExplain")}</p>
+            <p className="break-all rounded-xl bg-muted px-3 py-2 text-center font-mono text-caption">{wallet}</p>
+            <Button variant="outline" className="w-full" onClick={() => copy(wallet)}>
+              <Copy className="size-4" aria-hidden />
+              {t("move.copyAddress")}
+            </Button>
+          </div>
+        )}
       </div>
-      <p className="text-center text-caption text-muted-foreground">{t("move.worksWith")}</p>
       {incoming.length > 0 && (
         <section>
           <h3 className="mb-1 text-body font-semibold">{t("move.received")}</h3>

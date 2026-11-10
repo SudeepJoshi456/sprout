@@ -38,8 +38,8 @@ export async function coachAfterTrade(user: UserState, trade: Trade, prices: Pri
           facts: `Sold ${trade.symbol} below the purchase price.`,
         }
       : {
-          title: "A sale moves Seeds back to cash",
-          body: `Your ${trade.symbol} Seeds are back in cash. Cash doesn't grow, but it doesn't swing either. Here's how time and compounding fit in.`,
+          title: "A sale moves practice money back to cash",
+          body: `Your ${trade.symbol} practice money is back in cash. Cash doesn't grow, but it doesn't swing either. Here's how time and compounding fit in.`,
           lessonId: "compound-growth",
           facts: `Sold ${trade.symbol} at or above the purchase price.`,
         };
@@ -52,7 +52,7 @@ export async function coachAfterTrade(user: UserState, trade: Trade, prices: Pri
     };
   } else if (div.level === "concentrated" && !div.largestIsFund) {
     draft = {
-      title: `${div.largestPct}% of your invested Seeds are in ${div.largestSymbol}`,
+      title: `${div.largestPct}% of your invested practice money is in ${div.largestSymbol}`,
       body: `When one company is most of your portfolio, its bad days become your bad days. Here's what diversification does about that.`,
       lessonId: "diversification",
       facts: `Largest position ${div.largestSymbol} is ${div.largestPct}% of invested value.`,

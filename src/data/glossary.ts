@@ -35,7 +35,7 @@ export const GLOSSARY: GlossaryEntry[] = [
   { id: "bond", term: "Bond", definition: "A loan you make to a government or company in exchange for interest. Usually steadier than stocks." },
   { id: "delayed-price", term: "Delayed price", definition: "Free market data is often 15 minutes or more behind. Sprout labels every price with when it's from." },
   { id: "portfolio", term: "Portfolio", definition: "Everything you've invested in, taken together." },
-  { id: "sprout-seeds", term: "Sprout Seeds", definition: "Play money for practice investing. You start with 10,000. Seeds have no cash value and can't be withdrawn, traded, or turned into prizes." },
+  { id: "sprout-seeds", term: "Practice money", definition: "Fake money for learning to invest. You start with $10,000 of it. Practice money has no cash value and can't be withdrawn, traded, or turned into prizes." },
   { id: "compound-growth", term: "Compound growth", definition: "Earning returns on your past returns, so growth speeds up over time.", lessonId: "compound-growth" },
   { id: "open-payments", term: "Open Payments", definition: "An open standard that lets apps send and receive money between wallets and banks that support it." },
   { id: "interledger", term: "Interledger", definition: "A protocol that connects different payment networks so money can move between them, even across currencies." },

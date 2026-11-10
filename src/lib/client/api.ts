@@ -1,31 +1,28 @@
 "use client";
 
-import type { LiveWallet, ModeStatus, PersonaId, UserState } from "@/lib/types";
+import type { ConnectedWallet, ModeStatus, UserState } from "@/lib/types";
 import { t } from "@/i18n";
 
 /**
  * Client API layer.
  *
- * - Every request carries this browser's demo session id.
+ * - The session lives in an httpOnly cookie the browser sends automatically;
+ *   page JavaScript never sees it.
  * - Any response with `state` updates the global store, so screens re-render
  *   from one source of truth.
- * - The latest state per persona is snapshotted in localStorage; if a
- *   serverless instance doesn't know our session (409), we restore it.
+ * - A 401 means the session ended, so we go to the login screen.
  */
 
 export interface ClientState {
-  persona: PersonaId;
+  userId: string;
+  email: string;
+  handle: string | null;
   user: UserState;
   modes: ModeStatus;
-  /** Real wallets to pick from in live mode (empty when simulated). */
-  wallets?: LiveWallet[];
-  /** The wallet live sends actually debit. */
-  sendFrom?: string | null;
+  /** The person's own approved wallet, or null if they haven't connected one. */
+  wallet: ConnectedWallet | null;
   serverTime: string;
 }
-
-const SID_KEY = "sprout.sid";
-const SNAP_KEY = "sprout.snapshot.v2";
 
 export class ApiClientError extends Error {
   constructor(
@@ -35,17 +32,6 @@ export class ApiClientError extends Error {
   ) {
     super(message);
   }
-}
-
-// ---- Session id ------------------------------------------------------------
-
-export function getSid(): string {
-  let sid = localStorage.getItem(SID_KEY);
-  if (!sid || !/^[a-zA-Z0-9_-]{8,64}$/.test(sid)) {
-    sid = crypto.randomUUID();
-    localStorage.setItem(SID_KEY, sid);
-  }
-  return sid;
 }
 
 // ---- Global state store (useSyncExternalStore) ----------------------------
@@ -59,30 +45,20 @@ export const store = {
     listeners.add(fn);
     return () => listeners.delete(fn);
   },
-  set(next: ClientState) {
+  set(next: ClientState | null) {
     current = next;
-    saveSnapshot(next);
     listeners.forEach((l) => l());
   },
 };
 
-interface Snapshot {
-  activePersona: PersonaId;
-  users: Partial<Record<PersonaId, UserState>>;
-}
-
-function saveSnapshot(s: ClientState) {
-  try {
-    const prev = JSON.parse(localStorage.getItem(SNAP_KEY) ?? "null") as Snapshot | null;
-    const snap: Snapshot = { activePersona: s.persona, users: { ...(prev?.users ?? {}), [s.persona]: s.user } };
-    localStorage.setItem(SNAP_KEY, JSON.stringify(snap));
-  } catch {
-    /* storage full or disabled: the server copy still works */
-  }
-}
-
-export function clearSnapshot() {
-  localStorage.removeItem(SNAP_KEY);
+/** Forget everything cached for the signed-in person (log out, account deleted). */
+export function clearClient() {
+  cache.clear();
+  store.set(null);
+  // Older builds kept a copy of demo data here.
+  localStorage.removeItem("sprout.snapshot.v2");
+  localStorage.removeItem("sprout.sid");
+  localStorage.removeItem("sprout.onboarding.v1");
 }
 
 // ---- Requests ----------------------------------------------------------------
@@ -97,10 +73,11 @@ async function raw(path: string, opts: Options) {
   try {
     return await fetch(path, {
       method: opts.method ?? "GET",
-      headers: { "content-type": "application/json", "x-sprout-session": getSid() },
+      headers: { "content-type": "application/json" },
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
       signal: opts.signal,
       cache: "no-store",
+      credentials: "same-origin",
     });
   } catch (err) {
     if ((err as Error).name === "AbortError") throw err;
@@ -108,38 +85,19 @@ async function raw(path: string, opts: Options) {
   }
 }
 
-let restoring: Promise<void> | null = null;
-
-/** Recreate the server session from our snapshot (or seed a fresh one). */
-async function restore() {
-  restoring ??= (async () => {
-    const snap = localStorage.getItem(SNAP_KEY);
-    const res = snap
-      ? await raw("/api/session/restore", { method: "POST", body: { snapshot: JSON.parse(snap) } })
-      : await raw("/api/demo/reset", { method: "POST", body: {} });
-    const data = await res.json();
-    if (data.state) store.set(data.state);
-  })().finally(() => {
-    restoring = null;
-  });
-  return restoring;
-}
-
 let sent = 0;
 let applied = 0;
 
 export async function api<T = Record<string, unknown>>(path: string, opts: Options = {}): Promise<T> {
   const seq = ++sent;
-  let res = await raw(path, opts);
-  if (res.status === 409) {
-    const peek = await res.clone().json().catch(() => null);
-    if (peek?.error?.code === "session_missing") {
-      await restore();
-      res = await raw(path, opts);
-    }
-  }
+  const res = await raw(path, opts);
   const data = await res.json().catch(() => null);
   if (!res.ok) {
+    if (res.status === 401 && data?.error?.code === "signed_out" && !path.startsWith("/api/auth/")) {
+      clearClient();
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload drops everything held in memory for the old session
+      window.location.assign("/login");
+    }
     throw new ApiClientError(res.status, data?.error?.code ?? "unknown", data?.error?.message ?? t("app.genericError"));
   }
   // Responses can land out of order; never let an older state overwrite a newer one.
@@ -148,13 +106,6 @@ export async function api<T = Record<string, unknown>>(path: string, opts: Optio
     store.set(data.state as ClientState);
   }
   return data as T;
-}
-
-/** Fresh session for a brand-new demo (used by "Reset demo"). */
-export async function resetDemo(persona: PersonaId = "sudeep") {
-  clearSnapshot();
-  invalidate("");
-  return api("/api/demo/reset", { method: "POST", body: { persona } });
 }
 
 // ---- Tiny resource cache for read endpoints (SWR-style) ----------------------

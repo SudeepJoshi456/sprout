@@ -3,34 +3,23 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type { PaymentQuote, PaymentStep, PaymentsMode } from "@/lib/types";
 import { config } from "../config";
 import { ApiError } from "../http";
-import { canSendFrom, interledgerConfigured, interledgerProvider } from "./interledger";
-import { isDemoWallet, mockProvider } from "./mock";
-import { PaymentUserError, type PaymentsProvider } from "./types";
+import { interledgerConfigured, interledgerProvider } from "./interledger";
+import { mockProvider } from "./mock";
+import { PaymentUserError, type GrantStore, type PaymentsProvider } from "./types";
 
 /**
- * Payments facade. Picks the provider for PAYMENTS_MODE and falls back to the
- * mock on any infrastructure error, so the demo never breaks. User errors
- * (bad address) are surfaced as-is.
+ * Payments facade. Uses real Open Payments when the server has Interledger
+ * credentials, otherwise the offline simulator. Real payments never quietly
+ * turn into simulated ones: if the network fails, the person sees the error.
  */
 const QUOTE_TTL_MS = 5 * 60_000;
 
+export function liveMode() {
+  return config.paymentsMode === "interledger" && interledgerConfigured();
+}
+
 function primary(): PaymentsProvider {
-  return config.paymentsMode === "interledger" && interledgerConfigured() ? interledgerProvider : mockProvider;
-}
-
-/** Receiving is live for any of the configured real wallets. */
-export function receivingLive(walletAddress: string | null | undefined) {
-  return primary() === interledgerProvider && Boolean(walletAddress) && config.op.wallets.some((w) => w.url === walletAddress);
-}
-
-/** The wallet a live payment debits: the user's pick if Sprout can send from it, else the primary. */
-export function sendingWallet(chosen: string | null | undefined): string {
-  return chosen && canSendFrom(chosen) ? chosen : config.op.senderWalletAddress!;
-}
-
-/** Configured real wallets, for the send-from / receive-into pickers. */
-export function liveWallets() {
-  return config.op.wallets.map((w) => ({ ...w, canSend: canSendFrom(w.url) }));
+  return liveMode() ? interledgerProvider : mockProvider;
 }
 
 /** Accepts https URLs and "$host/path" payment pointers. */
@@ -48,6 +37,11 @@ export function normalizeWalletAddress(input: string): string {
   }
   if (!url.hostname.includes(".") || url.pathname.length < 2) {
     throw new ApiError(400, "invalid_address", "That address is missing the wallet name, e.g. https://ilp.example/yourname");
+  }
+  // The server fetches this URL, so only public domain names are allowed.
+  const host = url.hostname.toLowerCase();
+  if (url.username || url.password || url.port || /^[\d.]+$/.test(host) || host.startsWith("[") || /\.(local|internal|localhost|lan|home|corp)$/.test(host)) {
+    throw new ApiError(400, "invalid_address", "Wallet addresses need a public domain name, e.g. https://ilp.example/yourname");
   }
   return url.toString().replace(/\/$/, "");
 }
@@ -68,9 +62,11 @@ export function verifyQuote(q: PaymentQuote) {
   }
 }
 
-function mapUserError(err: unknown): never {
+function mapError(err: unknown): never {
   if (err instanceof PaymentUserError) throw new ApiError(422, err.code, err.message);
-  throw err;
+  if (err instanceof ApiError) throw err;
+  console.error("[payments] network error", err);
+  throw new ApiError(502, "network_error", "We couldn't reach the payment network. No money moved. Please try again.");
 }
 
 export async function createQuote(args: {
@@ -78,32 +74,13 @@ export async function createQuote(args: {
   receiverWallet: string;
   receiverName: string;
   amountCents: number;
-}): Promise<{ quote: PaymentQuote; fellBack: boolean; steps: PaymentStep[] }> {
+}): Promise<{ quote: PaymentQuote; steps: PaymentStep[] }> {
   const provider = primary();
-  let fellBack = false;
-  let result;
-  // Practice contacts have no real wallet; skip the network round trip that would only 404.
-  const practice = provider === interledgerProvider && isDemoWallet(args.receiverWallet);
-  // Live payments debit a wallet we hold an approved grant for.
-  const senderWallet = provider === interledgerProvider ? sendingWallet(args.senderWallet) : args.senderWallet;
-  if (provider === interledgerProvider && senderWallet === args.receiverWallet) {
-    throw new ApiError(400, "self_send", "You're sending from that wallet. Pick a different recipient or sending wallet.");
+  if (args.senderWallet === args.receiverWallet) {
+    throw new ApiError(400, "self_send", "That's the wallet you're sending from. Pick someone else to pay.");
   }
-  try {
-    result = practice ? await mockProvider.quote(args) : await provider.quote({ ...args, senderWallet });
-  } catch (err) {
-    if (practice) mapUserError(err);
-    const demoContact = err instanceof PaymentUserError && err.code === "wallet_not_found" && isDemoWallet(args.receiverWallet);
-    if ((err instanceof PaymentUserError && !demoContact) || provider === mockProvider) mapUserError(err);
-    console.warn("[payments] interledger quote failed, falling back to mock", err);
-    fellBack = true;
-    try {
-      result = await mockProvider.quote(args);
-    } catch (e) {
-      mapUserError(e);
-    }
-  }
-  const mode: PaymentsMode = fellBack || practice ? "mock" : provider.mode;
+  const result = await provider.quote(args).catch(mapError);
+  const mode: PaymentsMode = provider.mode;
   const unsigned: Omit<PaymentQuote, "signature"> = {
     id: randomUUID(),
     receiver: result.receiver,
@@ -115,9 +92,9 @@ export async function createQuote(args: {
     expiresAt: new Date(Date.now() + QUOTE_TTL_MS).toISOString(),
     mode,
     externalQuoteId: result.externalQuoteId,
-    ...(mode === "interledger" ? { senderWallet, incomingPaymentUrl: result.incomingPaymentUrl } : {}),
+    ...(mode === "interledger" ? { senderWallet: args.senderWallet, incomingPaymentUrl: result.incomingPaymentUrl } : {}),
   };
-  return { quote: { ...unsigned, signature: sign(unsigned) }, fellBack, steps: result.steps };
+  return { quote: { ...unsigned, signature: sign(unsigned) }, steps: result.steps };
 }
 
 /** In-flight sends by idempotency key, so a double tap can't start two payments. */
@@ -127,26 +104,22 @@ const inflight = (g.__sproutInflight ??= new Map());
 interface ExecResult {
   mode: PaymentsMode;
   externalId?: string;
-  fellBack: boolean;
   steps: PaymentStep[];
 }
 
-export function executeQuote(q: PaymentQuote, idempotencyKey: string, note?: string): Promise<ExecResult> {
+export function executeQuote(q: PaymentQuote, idempotencyKey: string, note: string | undefined, grants: GrantStore | null): Promise<ExecResult> {
   const existing = inflight.get(idempotencyKey);
   if (existing) return existing;
   const run = (async (): Promise<ExecResult> => {
     if (q.mode === "interledger") {
-      try {
-        const r = await interledgerProvider.execute({ externalQuoteId: q.externalQuoteId, senderWallet: q.senderWallet, idempotencyKey, note });
-        return { mode: "interledger", externalId: r.externalId, fellBack: false, steps: r.steps };
-      } catch (err) {
-        console.warn("[payments] interledger send failed, completing as simulated", err);
-        const r = await mockProvider.execute({ idempotencyKey });
-        return { mode: "mock", fellBack: true, steps: r.steps };
-      }
+      if (!grants) throw new ApiError(409, "wallet_not_connected", "Connect your wallet in Profile before sending money.");
+      const r = await interledgerProvider
+        .execute({ externalQuoteId: q.externalQuoteId, senderWallet: q.senderWallet, idempotencyKey, note, grants })
+        .catch(mapError);
+      return { mode: "interledger", externalId: r.externalId, steps: r.steps };
     }
     const r = await mockProvider.execute({ idempotencyKey });
-    return { mode: "mock", fellBack: false, steps: r.steps };
+    return { mode: "mock", steps: r.steps };
   })();
   inflight.set(idempotencyKey, run);
   // Keep successes briefly to absorb duplicate taps; drop failures so a retry can run.
@@ -158,11 +131,5 @@ export function executeQuote(q: PaymentQuote, idempotencyKey: string, note?: str
 }
 
 export async function resolveWallet(url: string) {
-  const provider = primary();
-  try {
-    return await provider.resolveWallet(url);
-  } catch (err) {
-    if ((err instanceof PaymentUserError && !isDemoWallet(url)) || provider === mockProvider) mapUserError(err);
-    return mockProvider.resolveWallet(url).catch(mapUserError);
-  }
+  return primary().resolveWallet(url).catch(mapError);
 }

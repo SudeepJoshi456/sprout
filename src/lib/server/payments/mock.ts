@@ -9,29 +9,10 @@ import { hostOf, PaymentUserError, StepRecorder, type PaymentsProvider } from ".
  * Simulated Open Payments. Same shapes, same steps, and realistic latency as
  * the real provider, so the receipt explains the identical flow.
  *
- * Known demo wallets resolve with their seeded currency. Any other valid
- * https URL resolves as a USD wallet, except URLs containing "notfound",
- * which simulate a wallet that doesn't exist.
+ * Only used when the server has no Interledger credentials. Any valid https
+ * URL resolves as a USD wallet (or the currency hinted by its name), except
+ * URLs containing "notfound", which simulate a wallet that doesn't exist.
  */
-const KNOWN: Record<string, { assetCode: string; publicName: string }> = {
-  "ana-lopez": { assetCode: "USD", publicName: "Ana López" },
-  "sita-joshi": { assetCode: "NPR", publicName: "Sita Joshi" },
-  "daniel-kim": { assetCode: "USD", publicName: "Daniel Kim" },
-  "jordan-reyes": { assetCode: "USD", publicName: "Jordan Reyes" },
-  "elm-street": { assetCode: "USD", publicName: "Elm St. Apartments" },
-  "sudeep-sprout": { assetCode: "USD", publicName: "Sudeep Joshi" },
-  "marcus-johnson": { assetCode: "USD", publicName: "Marcus Johnson" },
-};
-
-/** Seeded demo contacts that don't exist on the real test network. */
-export function isDemoWallet(url: string) {
-  try {
-    const u = new URL(url);
-    return u.host === "ilp.interledger-test.dev" && Boolean(KNOWN[u.pathname.split("/").filter(Boolean).pop() ?? ""]);
-  } catch {
-    return false;
-  }
-}
 
 /** Cross-currency network fee in the mock: 0.3%, shown to the user. */
 const FX_FEE_RATE = 0.003;
@@ -47,8 +28,6 @@ export const mockProvider: PaymentsProvider = {
       throw new PaymentUserError("wallet_not_found", "We couldn't find a wallet at that address. Check for typos and try again.");
     }
     const slug = new URL(url).pathname.split("/").filter(Boolean).pop() ?? "";
-    const known = KNOWN[slug];
-    if (known) return { url, ...known };
     // Hint currency from the address for demos, e.g. ".../carlos-mxn".
     const hint = slug.match(/-(npr|inr|eur|mxn|gbp|ngn|php)$/i)?.[1]?.toUpperCase();
     return { url, assetCode: hint ?? "USD", publicName: null };

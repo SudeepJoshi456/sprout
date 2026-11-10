@@ -9,9 +9,9 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "sw
 const spaceGrotesk = Space_Grotesk({ variable: "--font-space-grotesk", subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Sprout: Money that grows with you",
+  title: "Sprout: your first US account, made simple",
   description:
-    "For anyone starting from zero in the US: sign up without an SSN, move money with Interledger, and practice investing with real market data before you risk a dollar.",
+    "An everyday money account for people starting from zero in the US. Open it with a passport, ITIN, or SSN, send money home with every fee shown, and learn as you go.",
   applicationName: "Sprout",
   appleWebApp: { capable: true, title: "Sprout", statusBarStyle: "default" },
   icons: {

@@ -18,11 +18,23 @@ export interface ProviderQuote {
   steps: PaymentStep[];
 }
 
+export interface OutgoingGrant {
+  accessToken: string;
+  manageUrl: string;
+}
+
+/** Where the sender's spending grant lives; rotation writes the new token back. */
+export interface GrantStore {
+  get(): Promise<OutgoingGrant>;
+  save(grant: OutgoingGrant): Promise<void>;
+}
+
 export interface ExecuteInput {
   externalQuoteId?: string;
   senderWallet?: string;
   idempotencyKey: string;
   note?: string;
+  grants?: GrantStore;
 }
 
 export interface PaymentsProvider {
@@ -35,7 +47,7 @@ export interface PaymentsProvider {
 /** Thrown for problems the user can fix (bad address, etc.). Never triggers fallback. */
 export class PaymentUserError extends Error {
   constructor(
-    public code: "invalid_address" | "wallet_not_found" | "unsupported_currency",
+    public code: "invalid_address" | "wallet_not_found" | "unsupported_currency" | "approval_invalid",
     message: string,
   ) {
     super(message);

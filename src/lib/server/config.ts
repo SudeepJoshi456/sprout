@@ -10,12 +10,16 @@ function pick<T extends string>(value: string | undefined, allowed: readonly T[]
   return allowed.includes(value as T) ? (value as T) : fallback;
 }
 
+const DEV_SECRET = "sprout-dev-secret-change-me";
+
 export const config = {
   paymentsMode: pick<PaymentsMode>(process.env.PAYMENTS_MODE, ["mock", "interledger"], "mock"),
   aiMode: pick<AiMode>(process.env.AI_MODE, ["mock", "live"], "mock"),
   marketMode: pick<MarketMode>(process.env.MARKET_MODE, ["snapshot", "live"], "snapshot"),
 
-  sessionSecret: process.env.SESSION_SECRET || "sprout-dev-secret-change-me",
+  sessionSecret: process.env.SESSION_SECRET || DEV_SECRET,
+  /** Public URL wallets send people back to after approving, e.g. https://sprout.vercel.app. */
+  appUrl: process.env.APP_URL?.replace(/\/$/, "") || null,
   dataDir: process.env.DATA_DIR || (process.env.VERCEL ? "/tmp/sprout-data" : ".data"),
 
   ai: {
@@ -29,59 +33,22 @@ export const config = {
     cacheSeconds: Math.max(60, Number(process.env.MARKET_CACHE_SECONDS || 60)),
   },
 
+  /** Sprout's own Open Payments client identity. People connect their own wallets in the app. */
   op: {
     clientWalletAddress: process.env.OP_CLIENT_WALLET_ADDRESS,
     keyId: process.env.OP_KEY_ID,
     privateKey: process.env.OP_PRIVATE_KEY,
     privateKeyPath: process.env.OP_PRIVATE_KEY_PATH,
-    senderWalletAddress: process.env.OP_SENDER_WALLET_ADDRESS || process.env.OP_CLIENT_WALLET_ADDRESS,
-    outgoingAccessToken: process.env.OP_OUTGOING_ACCESS_TOKEN,
-    outgoingManageUrl: process.env.OP_OUTGOING_MANAGE_URL,
-    /** Optional real test-network wallets to use for the seeded contacts. */
-    roommateWallet: process.env.OP_DEMO_ROOMMATE_WALLET,
-    familyWallet: process.env.OP_DEMO_FAMILY_WALLET,
-    friendWallet: process.env.OP_DEMO_FRIEND_WALLET,
-    /** Real wallets a user can pick to send from or receive into. */
-    wallets: parseWallets(process.env.OP_WALLETS, process.env.OP_SENDER_WALLET_ADDRESS || process.env.OP_CLIENT_WALLET_ADDRESS),
-    /** Outgoing grants for wallets other than the primary, as JSON {walletUrl: {accessToken, manageUrl}}. */
-    extraGrants: parseGrants(process.env.OP_OUTGOING_GRANTS),
   },
 };
 
-export interface LiveWalletConfig {
-  label: string;
-  url: string;
-}
-
-/** OP_WALLETS="Sudeep|https://ilp.../a,JJ|https://ilp.../b". Defaults to the primary sender. */
-function parseWallets(raw: string | undefined, primary: string | undefined): LiveWalletConfig[] {
-  const list = (raw ?? "")
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .map((entry) => {
-      const [label, url] = entry.includes("|") ? entry.split("|") : ["", entry];
-      return { label: label.trim(), url: url.trim().replace(/\/$/, "") };
-    })
-    .filter((w) => w.url.startsWith("https://"))
-    .map((w) => ({ ...w, label: w.label || w.url.split("/").pop()! }));
-  if (primary && !list.some((w) => w.url === primary)) list.unshift({ label: primary.split("/").pop()!, url: primary });
-  return list;
-}
-
-function parseGrants(raw: string | undefined): Record<string, { accessToken: string; manageUrl: string }> {
-  if (!raw) return {};
-  try {
-    return JSON.parse(raw) as Record<string, { accessToken: string; manageUrl: string }>;
-  } catch {
-    console.warn("[config] OP_OUTGOING_GRANTS is not valid JSON; ignoring it");
-    return {};
-  }
+if (process.env.VERCEL && config.sessionSecret === DEV_SECRET) {
+  console.error("[config] SESSION_SECRET is not set; payment quotes are signed with a public default");
 }
 
 /** The modes actually in effect: "interledger" requires credentials, else the mock runs. */
 export function modeStatus(): ModeStatus {
   const op = config.op;
-  const opReady = Boolean(op.clientWalletAddress && op.keyId && (op.privateKey || op.privateKeyPath) && op.senderWalletAddress);
+  const opReady = Boolean(op.clientWalletAddress && op.keyId && (op.privateKey || op.privateKeyPath));
   return { payments: config.paymentsMode === "interledger" && opReady ? "interledger" : "mock", ai: config.aiMode, market: config.marketMode };
 }

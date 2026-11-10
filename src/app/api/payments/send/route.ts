@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 import { executeQuote, verifyQuote } from "@/lib/server/payments";
-import { markSentIncoming, saveSession } from "@/lib/server/store";
+import { markSentIncoming } from "@/lib/server/store";
+import { getLinkedWallet, grantStoreFor } from "@/lib/server/wallet-link";
 import type { PaymentQuote, PaymentStep, Transfer } from "@/lib/types";
 
 /**
@@ -25,25 +26,31 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
-  return withSession(req, async ({ sid, db, user }) => {
+  return withSession(req, async ({ userId, user, save }) => {
     const body = await parseBody(req, schema);
     const prior = user.transfers.find((t) => t.idempotencyKey === body.idempotencyKey);
     if (prior) return { transfer: prior, duplicate: true };
 
     const q = body.quote;
     verifyQuote(q);
-    if (q.debitCents > user.account.balanceCents) {
-      throw new ApiError(422, "insufficient_funds", "Your balance changed and no longer covers this payment. Nothing was sent.");
-    }
 
     if (user.demo.failNextSend) {
       user.demo.failNextSend = false;
-      saveSession(sid, db);
+      await save();
       throw new ApiError(503, "network_error", "We couldn't reach the payment network. No money left your account.");
     }
 
-    if (q.incomingPaymentUrl) await markSentIncoming(q.incomingPaymentUrl, sid);
-    const result = await executeQuote(q, body.idempotencyKey, body.note);
+    let grants = null;
+    if (q.mode === "interledger") {
+      const link = await getLinkedWallet(userId);
+      if (!link || link.wallet !== q.senderWallet) {
+        throw new ApiError(409, "wallet_not_connected", "This payment isn't from your connected wallet. Nothing was sent.");
+      }
+      grants = grantStoreFor(userId, link);
+    }
+
+    if (q.incomingPaymentUrl) await markSentIncoming(q.incomingPaymentUrl, userId);
+    const result = await executeQuote(q, body.idempotencyKey, body.note, grants);
 
     // A concurrent request with the same key may have recorded it while we awaited.
     const raced = user.transfers.find((t) => t.idempotencyKey === body.idempotencyKey);
@@ -70,7 +77,6 @@ export async function POST(req: Request) {
       steps: [...((body.quoteSteps ?? []) as PaymentStep[]), ...(result.steps ?? [])],
     };
     user.transfers.unshift(transfer);
-    user.account.balanceCents -= q.debitCents;
 
     const bill = body.billId ? user.bills.find((b) => b.id === body.billId && !b.paid) : undefined;
     if (bill) {
@@ -85,6 +91,6 @@ export async function POST(req: Request) {
       category: bill ? bill.category : "transfer",
       transferId: transfer.id,
     });
-    return { transfer, fellBack: result.fellBack, paidBillId: bill?.id ?? null };
+    return { transfer, paidBillId: bill?.id ?? null };
   });
 }

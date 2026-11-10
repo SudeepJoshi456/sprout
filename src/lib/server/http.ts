@@ -1,9 +1,10 @@
 import "server-only";
 import type { z } from "zod";
-import type { PersonaId, SessionDb, UserState } from "@/lib/types";
-import { config, modeStatus } from "./config";
-import { canSendFrom } from "./payments/interledger";
-import { SESSION_HEADER, isValidSid, loadSession, saveSession } from "./store";
+import type { UserState } from "@/lib/types";
+import { isSameOrigin, sessionUserId } from "./auth";
+import { modeStatus } from "./config";
+import { loadUser, saveUser, type UserRecord } from "./users";
+import { getLinkedWallet } from "./wallet-link";
 
 /** Errors thrown inside handlers become `{ error: { code, message } }` responses. */
 export class ApiError extends Error {
@@ -42,21 +43,29 @@ export async function parseBody<T extends z.ZodType>(req: Request, schema: T): P
   return result.data;
 }
 
-export function getSid(req: Request) {
-  const sid = req.headers.get(SESSION_HEADER);
-  if (!isValidSid(sid)) throw new ApiError(400, "no_session", "Missing or invalid session id.");
-  return sid;
+export function assertSameOrigin(req: Request) {
+  if (!isSameOrigin(req)) throw new ApiError(403, "bad_origin", "This request came from another site and was blocked.");
+}
+
+/** The signed-in account, or a 401. */
+export async function requireUser(req: Request): Promise<UserRecord> {
+  assertSameOrigin(req);
+  const userId = await sessionUserId(req);
+  const record = userId ? await loadUser(userId) : null;
+  if (!record) throw new ApiError(401, "signed_out", "Please log in to continue.");
+  return record;
 }
 
 export interface SessionCtx {
-  sid: string;
-  db: SessionDb;
-  persona: PersonaId;
+  userId: string;
+  record: UserRecord;
   user: UserState;
+  /** Persist now (e.g. before a slow network call). */
+  save: () => Promise<void>;
 }
 
 /**
- * Loads the caller's session, runs the handler, saves (for mutations), and
+ * Loads the signed-in user, runs the handler, saves (for mutations), and
  * returns `{ ...result, state }` so the client always gets fresh state back.
  */
 export async function withSession(
@@ -65,32 +74,28 @@ export async function withSession(
   opts: { mutates?: boolean } = { mutates: true },
 ) {
   try {
-    const sid = getSid(req);
-    const db = loadSession(sid);
-    if (!db) throw new ApiError(409, "session_missing", "Session not found on this server.");
-    const persona = db.activePersona;
-    const result = (await handler({ sid, db, persona, user: db.users[persona] })) ?? {};
-    if (opts.mutates !== false) saveSession(sid, db);
-    return Response.json({ ...result, state: clientState(db) });
+    const record = await requireUser(req);
+    const save = () => saveUser(record);
+    const result = (await handler({ userId: record.id, record, user: record.state, save })) ?? {};
+    if (opts.mutates !== false) await save();
+    return Response.json({ ...result, state: await clientState(record) });
   } catch (err) {
     return errorResponse(err);
   }
 }
 
-export function clientState(db: SessionDb) {
+export async function clientState(record: UserRecord) {
   const modes = modeStatus();
-  const user = db.users[db.activePersona];
   const live = modes.payments === "interledger";
-  const wallets = live ? config.op.wallets.map((w) => ({ ...w, canSend: canSendFrom(w.url) })) : [];
-  const receivingLive = live && wallets.some((w) => w.url === user.profile.walletAddress);
-  const chosen = user.sendFrom ?? user.profile.walletAddress;
-  const sendFrom = live ? (wallets.find((w) => w.url === chosen && w.canSend)?.url ?? config.op.senderWalletAddress ?? null) : null;
+  const link = live ? await getLinkedWallet(record.id) : null;
+  const connected = Boolean(link && link.wallet === record.state.profile.walletAddress);
   return {
-    persona: db.activePersona,
-    user,
-    modes: { ...modes, receiving: receivingLive ? "interledger" : "mock" },
-    wallets,
-    sendFrom,
+    userId: record.id,
+    email: record.email,
+    handle: record.handle,
+    user: record.state,
+    modes: { ...modes, receiving: connected ? "interledger" : "mock" },
+    wallet: link && connected ? { url: link.wallet, assetCode: link.assetCode, capMinor: link.capMinor, linkedAt: link.linkedAt } : null,
     serverTime: new Date().toISOString(),
   };
 }

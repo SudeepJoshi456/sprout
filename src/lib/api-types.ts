@@ -37,12 +37,10 @@ export interface QuotesResponse {
 
 export interface QuoteResponse {
   quote: PaymentQuote;
-  fellBack: boolean;
 }
 
 export interface SendResponse {
   transfer: Transfer;
-  fellBack?: boolean;
   duplicate?: boolean;
   paidBillId?: string | null;
 }

@@ -14,8 +14,8 @@ import { t } from "@/i18n";
 
 /** Locked "graduate to real investing" screen. Nothing here moves real money. */
 export default function GraduatePage() {
-  const { persona } = useAppState();
-  const { data } = useResource<PortfolioResponse>(`/api/portfolio?range=1D&p=${persona}`);
+  const { userId } = useAppState();
+  const { data } = useResource<PortfolioResponse>(`/api/portfolio?range=1D&u=${userId}`);
   const [notified, setNotified] = useState(false);
   const g = data?.portfolio.graduate;
 

@@ -12,3 +12,12 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/bills/[id]">) 
     bill.setAsideCents = Math.min(setAsideCents, bill.amountCents);
   });
 }
+
+/** DELETE /api/bills/:id: removes a bill. */
+export async function DELETE(req: Request, ctx: RouteContext<"/api/bills/[id]">) {
+  return withSession(req, async ({ user }) => {
+    const { id } = await ctx.params;
+    if (!user.bills.some((b) => b.id === id)) throw new ApiError(404, "not_found", "We couldn't find that bill.");
+    user.bills = user.bills.filter((b) => b.id !== id);
+  });
+}

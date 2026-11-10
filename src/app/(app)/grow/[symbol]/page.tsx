@@ -49,11 +49,11 @@ function Asset() {
   const symbol = raw.toUpperCase();
   const params = useSearchParams();
   const router = useRouter();
-  const { persona } = useAppState();
+  const { userId } = useAppState();
   const [range, setRange] = useState<ChartRange>("1M");
   const history = useResource<HistoryResponse>(`/api/market/history?symbol=${symbol}&range=${range}`);
   const about = useResource<{ about: string; source: "ai" | "prewritten" }>(`/api/market/about?symbol=${symbol}`);
-  const portfolio = useResource<PortfolioResponse>(`/api/portfolio?range=1D&p=${persona}`);
+  const portfolio = useResource<PortfolioResponse>(`/api/portfolio?range=1D&u=${userId}`);
 
   const tradeParam = params.get("trade");
   const [tradeOpen, setTradeOpen] = useState(tradeParam === "buy" || tradeParam === "sell");

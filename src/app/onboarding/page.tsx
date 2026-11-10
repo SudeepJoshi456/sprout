@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import {
   BookOpen,
   ChevronDown,
@@ -14,9 +14,10 @@ import {
   HeartHandshake,
   IdCard,
   LineChart,
+  Lock,
   Plane,
+  Scale,
   ShieldCheck,
-  Sprout,
   Umbrella,
   Wallet,
 } from "lucide-react";
@@ -26,8 +27,10 @@ import { Field } from "@/components/ui/field";
 import { ProgressBar } from "@/components/ui/progress";
 import { SimulatedBadge } from "@/components/ui/badge";
 import { api, ApiClientError, invalidate } from "@/lib/client/api";
-import { useReducedMotion } from "@/lib/client/hooks";
+import { ConnectWallet, WalletReturnNotice } from "@/components/money/connect-wallet";
+import { useBootstrap, useClientState, useReducedMotion } from "@/lib/client/hooks";
 import { cn } from "@/lib/format";
+import { atHandle } from "@/lib/handles";
 import type { Goal, IdType, Reason, VisaType } from "@/lib/types";
 import { t } from "@/i18n";
 
@@ -75,19 +78,6 @@ const EMPTY: Draft = {
   goal: null,
 };
 
-const DEMO = {
-  reasons: ["new_to_us", "learn_investing"] as Reason[],
-  fullName: "Sudeep Joshi",
-  preferredName: "Sudeep",
-  idType: "passport" as IdType,
-  idCountry: "Nepal",
-  visaType: "F-1" as VisaType,
-  passport: "Z1234821",
-  schoolEmail: "sjoshi@state.edu",
-  walletAddress: "https://ilp.interledger-test.dev/sudeep-sprout",
-  goal: "send_home" as Goal,
-};
-
 function loadDraft(): Draft {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
@@ -102,7 +92,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [hydrated, setHydrated] = useState(false);
-  const [demoMode, setDemoMode] = useState(false);
+  const { state, error, retry } = useBootstrap();
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -117,24 +107,14 @@ export default function OnboardingPage() {
     if (hydrated) headingRef.current?.focus();
   }, [draft.step, hydrated]);
 
+  const onboarded = state?.user.profile.onboarded;
+  useEffect(() => {
+    if (onboarded) router.replace("/home");
+  }, [onboarded, router]);
+
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   const go = (step: number) => update({ step });
   const back = () => (draft.step > 1 ? go(draft.step - 1) : router.push("/"));
-
-  const useDemo = () => {
-    setDemoMode(true);
-    update({
-      reasons: draft.reasons.length ? draft.reasons : DEMO.reasons,
-      fullName: DEMO.fullName,
-      preferredName: DEMO.preferredName,
-      idType: DEMO.idType,
-      idCountry: DEMO.idCountry,
-      visaType: DEMO.visaType,
-      schoolEmail: DEMO.schoolEmail,
-      walletAddress: DEMO.walletAddress,
-      goal: DEMO.goal,
-    });
-  };
 
   const step = draft.step;
   return (
@@ -154,13 +134,18 @@ export default function OnboardingPage() {
         </div>
       </header>
 
-      {!hydrated ? (
+      {error && !state ? (
+        <main id="main" role="alert" className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+          <p className="text-body">{error.message}</p>
+          <Button onClick={retry}>{t("app.retry")}</Button>
+        </main>
+      ) : !hydrated || !state || onboarded ? (
         <main id="main" className="flex-1" />
       ) : (
         <>
           {step === 1 && <ReasonsStep draft={draft} update={update} headingRef={headingRef} onNext={() => go(2)} />}
-          {step === 2 && <NameStep draft={draft} update={update} headingRef={headingRef} onNext={() => go(3)} onDemo={useDemo} />}
-          {step === 3 && <IdentityStep draft={draft} update={update} headingRef={headingRef} demoMode={demoMode} onDemo={useDemo} onNext={() => go(4)} />}
+          {step === 2 && <NameStep draft={draft} update={update} headingRef={headingRef} onNext={() => go(3)} />}
+          {step === 3 && <IdentityStep draft={draft} update={update} headingRef={headingRef} onNext={() => go(4)} />}
           {step === 4 && <WalletStep draft={draft} update={update} headingRef={headingRef} onNext={() => go(5)} />}
           {step === 5 && (
             <GoalStep
@@ -254,7 +239,7 @@ function ReasonsStep({ draft, update, headingRef, onNext }: StepProps & { onNext
   );
 }
 
-function NameStep({ draft, update, headingRef, onNext, onDemo }: StepProps & { onNext: () => void; onDemo: () => void }) {
+function NameStep({ draft, update, headingRef, onNext }: StepProps & { onNext: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -294,10 +279,6 @@ function NameStep({ draft, update, headingRef, onNext, onDemo }: StepProps & { o
             onChange={(e) => update({ preferredName: e.target.value })}
             autoComplete="nickname"
           />
-          <Button variant="outline" onClick={onDemo} className="w-full">
-            <Sprout className="size-4" aria-hidden />
-            {t("onboarding.name.demoFill")}
-          </Button>
         </div>
       </StepLayout>
     </form>
@@ -311,26 +292,18 @@ function IdentityStep({
   update,
   headingRef,
   onNext,
-  onDemo,
-  demoMode,
-}: StepProps & { onNext: () => void; onDemo: () => void; demoMode: boolean }) {
+}: StepProps & { onNext: () => void }) {
   const reduced = useReducedMotion();
-  const [number, setNumber] = useState(demoMode && draft.idType === "passport" ? DEMO.passport : "");
+  const [number, setNumber] = useState("");
   const [show, setShow] = useState(false);
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [verify, setVerify] = useState<VerifyState>(draft.idLast4 ? "verified" : "idle");
   const [whyOpen, setWhyOpen] = useState(false);
+  const [intro, setIntro] = useState(!draft.idLast4);
 
   const choose = (idType: IdType) => {
     update({ idType, idLast4: null });
     setNumber("");
-    setErrors({});
-    setVerify("idle");
-  };
-
-  const fillDemo = () => {
-    onDemo();
-    setNumber(DEMO.passport);
     setErrors({});
     setVerify("idle");
   };
@@ -365,6 +338,44 @@ function IdentityStep({
     { id: "itin", title: t("onboarding.identity.itin"), hint: t("onboarding.identity.itinWhy"), Icon: IdCard },
     { id: "passport", title: t("onboarding.identity.passport"), hint: t("onboarding.identity.passportWhy"), Icon: Globe },
   ];
+
+  if (intro) {
+    const points = [
+      { Icon: Scale, title: t("onboarding.trust.whyTitle"), body: t("onboarding.trust.whyBody") },
+      { Icon: Lock, title: t("onboarding.trust.protectTitle"), body: t("onboarding.trust.protectBody") },
+      { Icon: Eye, title: t("onboarding.trust.whoTitle"), body: t("onboarding.trust.whoBody") },
+    ];
+    return (
+      <StepLayout
+        title={t("onboarding.trust.title")}
+        sub={t("onboarding.trust.sub")}
+        headingRef={headingRef}
+        footer={
+          <Button size="lg" onClick={() => setIntro(false)}>
+            {t("onboarding.trust.cta")}
+          </Button>
+        }
+      >
+        <ul className="space-y-4">
+          {points.map(({ Icon, title, body }) => (
+            <li key={title} className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-positive-soft text-primary">
+                <Icon className="size-5" aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-body font-semibold">{title}</span>
+                <span className="block text-body text-muted-foreground">{body}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-6 flex items-start gap-2 rounded-xl bg-secondary/70 p-3 text-caption text-muted-foreground">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+          {t("onboarding.trust.prototype")}
+        </p>
+      </StepLayout>
+    );
+  }
 
   if (verify !== "idle") {
     return (
@@ -554,106 +565,57 @@ function IdentityStep({
           </button>
           {whyOpen && <p className="mt-1 text-body text-muted-foreground">{t("onboarding.identity.whyAskBody")}</p>}
         </div>
-
-        <Button variant="ghost" onClick={fillDemo} className="mt-3 w-full">
-          <Sprout className="size-4" aria-hidden />
-          {t("onboarding.name.demoFill")}
-        </Button>
       </StepLayout>
     </form>
   );
 }
 
-function WalletStep({ draft, update, headingRef, onNext }: StepProps & { onNext: () => void }) {
-  const [error, setError] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [explain, setExplain] = useState(false);
-
-  const connect = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (draft.walletCurrency) return onNext();
-    const value = draft.walletAddress.trim();
-    const isUrl = /^https:\/\/[^\s/]+\.[^\s/]+/i.test(value) || /^\$[^\s/]+\.[^\s/]+/.test(value);
-    if (!isUrl) return setError(t("onboarding.wallet.errFormat"));
-    setChecking(true);
-    try {
-      const res = await api<{ wallet: { assetCode: string } }>(`/api/wallet/resolve?address=${encodeURIComponent(value)}`);
-      update({ walletCurrency: res.wallet.assetCode });
-    } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : t("app.genericError"));
-    } finally {
-      setChecking(false);
-    }
-  };
+function WalletStep({ draft, headingRef, onNext }: StepProps & { onNext: () => void }) {
+  const state = useClientState();
+  const handle = atHandle(draft.preferredName || draft.fullName || "you");
+  const live = state?.modes.payments === "interledger";
+  const wallet = state?.wallet;
 
   return (
-    <form onSubmit={connect} className="contents" noValidate>
-      <StepLayout
-        title={t("onboarding.wallet.title")}
-        sub={t("onboarding.wallet.sub")}
-        headingRef={headingRef}
-        footer={
-          <>
-            <Button size="lg" type="submit" loading={checking} loadingText={t("onboarding.wallet.checking")}>
-              {draft.walletCurrency ? t("app.continue") : t("onboarding.wallet.connect")}
-            </Button>
-            {!draft.walletCurrency && (
-              <Button variant="ghost" className="w-full" onClick={() => { update({ walletAddress: "" }); onNext(); }}>
-                {t("onboarding.wallet.skip")}
-              </Button>
-            )}
-          </>
-        }
-      >
-        <Field
-          label={t("onboarding.wallet.label")}
-          placeholder={t("onboarding.wallet.placeholder")}
-          hint={t("onboarding.wallet.example")}
-          type="url"
-          inputMode="url"
-          autoComplete="off"
-          autoCapitalize="none"
-          spellCheck={false}
-          value={draft.walletAddress}
-          onChange={(e) => {
-            update({ walletAddress: e.target.value, walletCurrency: null });
-            setError(null);
-          }}
-          error={error}
-        />
-        {draft.walletCurrency && (
-          <p role="status" className="mt-3 flex items-center gap-2 rounded-xl bg-positive-soft p-3 text-body font-medium text-positive">
-            <CircleCheck className="size-5" aria-hidden />
-            {t("onboarding.wallet.found", { currency: draft.walletCurrency })}
-          </p>
-        )}
-        <Button
-          variant="outline"
-          className="mt-4 w-full"
-          onClick={() => {
-            update({ walletAddress: DEMO.walletAddress, walletCurrency: null });
-            setError(null);
-          }}
-        >
-          <Wallet className="size-4" aria-hidden />
-          {t("onboarding.wallet.useDemo")}
+    <StepLayout
+      title={t("onboarding.wallet.title")}
+      sub={t("onboarding.wallet.sub")}
+      headingRef={headingRef}
+      footer={
+        <Button size="lg" variant={live && !wallet ? "ghost" : "primary"} onClick={onNext}>
+          {live && !wallet ? t("onboarding.wallet.skip") : t("app.continue")}
         </Button>
-
-        <div className="mt-6 rounded-2xl bg-info-soft p-4">
-          <button
-            type="button"
-            onClick={() => setExplain((o) => !o)}
-            aria-expanded={explain}
-            className="flex min-h-11 w-full items-center gap-2 text-left text-body font-semibold text-info"
-          >
-            <Globe className="size-5" aria-hidden />
-            <span className="flex-1">{t("onboarding.wallet.whatsThis")}</span>
-            <ChevronDown className={cn("size-5 transition-transform", explain && "rotate-180")} aria-hidden />
-          </button>
-          {explain && <p className="mt-1 text-body text-foreground/85">{t("onboarding.wallet.whatsThisBody")}</p>}
+      }
+    >
+      <Suspense>
+        <WalletReturnNotice />
+      </Suspense>
+      {wallet ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-primary/25 bg-positive-soft p-4">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <CircleCheck className="size-5" aria-hidden />
+          </span>
+          <span className="min-w-0">
+            <span className="block font-display text-title font-semibold">{t("onboarding.wallet.connectedTitle")}</span>
+            <span className="block truncate text-caption text-muted-foreground">{wallet.url.replace(/^https:\/\//, "")}</span>
+            <span className="block text-caption text-primary">
+              {t("onboarding.wallet.usernameLabel")}: {handle}
+            </span>
+          </span>
         </div>
-      </StepLayout>
-    </form>
+      ) : live ? (
+        <ConnectWallet returnTo="/onboarding" />
+      ) : (
+        <p className="flex items-start gap-2 rounded-xl bg-muted p-3 text-body text-muted-foreground">
+          <Wallet className="mt-0.5 size-5 shrink-0" aria-hidden />
+          {t("onboarding.wallet.offline")}
+        </p>
+      )}
+      <p className="mt-4 flex items-start gap-2 text-caption text-muted-foreground">
+        <Globe className="mt-0.5 size-4 shrink-0" aria-hidden />
+        {t("onboarding.wallet.whatsThisBody")}
+      </p>
+    </StepLayout>
   );
 }
 
@@ -687,7 +649,6 @@ function GoalStep({ draft, update, headingRef, onDone }: StepProps & { onDone: (
           idCountry: draft.idType === "passport" ? draft.idCountry : undefined,
           visaType: draft.idType === "passport" ? draft.visaType : undefined,
           schoolEmail: draft.idType === "passport" ? draft.schoolEmail.trim() : undefined,
-          walletAddress: draft.walletAddress.trim() || undefined,
           goal: draft.goal,
         },
       });

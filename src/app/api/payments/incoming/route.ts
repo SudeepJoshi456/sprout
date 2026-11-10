@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { withSession } from "@/lib/server/http";
-import { receivingLive } from "@/lib/server/payments";
+import { connectedWallet } from "@/lib/server/connected";
 import { listOwnIncomingPayments } from "@/lib/server/payments/interledger";
 import { hostOf } from "@/lib/server/payments/types";
 import { claimIncoming, sentBySession } from "@/lib/server/store";
@@ -12,8 +12,8 @@ import type { Transfer } from "@/lib/types";
  * payment is credited only for the amount not yet seen.
  */
 export async function POST(req: Request) {
-  return withSession(req, async ({ sid, user }) => {
-    if (!receivingLive(user.profile.walletAddress)) return { live: false, received: [] };
+  return withSession(req, async ({ userId, user }) => {
+    if (!(await connectedWallet(userId, user))) return { live: false, received: [] };
 
     user.incoming ??= { since: new Date(Date.now() - 10 * 60_000).toISOString(), credited: {} };
     const sync = user.incoming;
@@ -29,9 +29,9 @@ export async function POST(req: Request) {
       if (ip.createdAt < sync.since) continue;
       const delta = ip.receivedCents - (sync.credited[ip.url] ?? 0);
       if (delta <= 0) continue;
-      if (await sentBySession(ip.url, sid)) continue;
+      if (await sentBySession(ip.url, userId)) continue;
       const request = user.requests.find((r) => r.incomingPaymentUrl === ip.url);
-      if (!request && !(await claimIncoming(ip.url, sid))) continue;
+      if (!request && !(await claimIncoming(ip.url, userId))) continue;
       sync.credited[ip.url] = ip.receivedCents;
 
       if (request) {
@@ -77,7 +77,6 @@ export async function POST(req: Request) {
         ],
       };
       user.transfers.unshift(transfer);
-      user.account.balanceCents += delta;
       user.transactions.unshift({
         id: randomUUID(),
         date: now,

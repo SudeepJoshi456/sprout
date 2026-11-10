@@ -1,37 +1,55 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useRef, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { BadgeCheck, Copy, CreditCard, GraduationCap, Landmark, LogOut, PiggyBank, RotateCcw, TrendingUp, UserRound, Wallet } from "lucide-react";
+import { BadgeCheck, Copy, CreditCard, LogOut, PiggyBank, Trash2, TrendingUp, Unplug, Wallet } from "lucide-react";
 import { Screen } from "@/components/shell/screen";
 import { Card, CardHeader, SectionTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, SimulatedBadge } from "@/components/ui/badge";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
 import { Sheet } from "@/components/ui/sheet";
 import { Field } from "@/components/ui/field";
-import { api, ApiClientError, clearSnapshot, resetDemo } from "@/lib/client/api";
+import { ConnectWallet, WalletReturnNotice } from "@/components/money/connect-wallet";
+import { amountIn } from "@/components/money/wallet-activity";
+import { api, ApiClientError, clearClient, invalidate } from "@/lib/client/api";
 import { useAppState } from "@/lib/client/hooks";
 import { CURRENCY_NAMES } from "@/data/fx";
-import type { PersonaId, Settings } from "@/lib/types";
+import type { Settings } from "@/lib/types";
 import { t } from "@/i18n";
 
 type Theme = "system" | "light" | "dark";
 
-/** Profile & settings: identity, linked wallet, preferences, and account tools. */
+const DEMO_TOOLS_KEY = "sprout.demoTools";
+
+/** Profile & settings: identity, connected wallet, preferences, and account security. */
 export default function ProfilePage() {
-  const { user, persona, modes } = useAppState();
-  const router = useRouter();
+  const { user, email, handle, modes, wallet } = useAppState();
   const { theme, setTheme } = useTheme();
   const [walletOpen, setWalletOpen] = useState(false);
-  const [resetOpen, setResetOpen] = useState(false);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [demoTools, setDemoTools] = useState(
+    () => typeof window !== "undefined" && (localStorage.getItem(DEMO_TOOLS_KEY) === "1" || new URLSearchParams(window.location.search).get("demo") === "1"),
+  );
+  const taps = useRef(0);
   const p = user.profile;
   const live = modes.payments === "interledger";
+
+  const toggleDemoTools = (on: boolean) => {
+    setDemoTools(on);
+    if (on) localStorage.setItem(DEMO_TOOLS_KEY, "1");
+    else localStorage.removeItem(DEMO_TOOLS_KEY);
+    if (on) toast(t("profile.demoShown"));
+  };
+  const tapVersion = () => {
+    taps.current += 1;
+    if (taps.current >= 5 && !demoTools) toggleDemoTools(true);
+  };
 
   const patch = async (body: Record<string, unknown>) => {
     try {
@@ -42,46 +60,41 @@ export default function ProfilePage() {
   };
   const setNotif = (key: keyof Settings["notifications"], value: boolean) => patch({ notifications: { [key]: value } });
 
-  const switchTo = async (next: PersonaId) => {
-    if (next === persona) return;
+  const disconnect = async () => {
     setBusy(true);
     try {
-      await api("/api/persona", { method: "POST", body: { persona: next } });
-      toast.success(t("profile.switched", { name: next === "sudeep" ? "Sudeep" : "Marcus" }));
-      router.push("/home");
+      await api("/api/wallet/connect", { method: "DELETE" });
+      invalidate("/api/wallet");
+      toast.success(t("wallet.disconnected"));
+      setDisconnectOpen(false);
+    } catch (e) {
+      toast.error(e instanceof ApiClientError ? e.message : t("app.genericError"));
     } finally {
       setBusy(false);
     }
   };
 
-  const reset = async (then: "/" | "/onboarding") => {
+  const signOut = async () => {
     setBusy(true);
-    try {
-      await resetDemo("sudeep");
-      toast.success(t("profile.resetDone"));
-      router.push(then);
-    } finally {
-      setBusy(false);
-      setResetOpen(false);
-    }
-  };
-
-  const signOut = () => {
-    clearSnapshot();
-    localStorage.removeItem("sprout.sid");
-    router.push("/");
-    setTimeout(() => window.location.reload(), 50);
+    await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    clearClient();
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload drops everything held in memory for the old session
+    window.location.assign("/");
   };
 
   const idLabel = p.idType === "passport" ? t("onboarding.identity.passport") : p.idType === "itin" ? t("onboarding.identity.itin") : p.idType === "ssn" ? t("onboarding.identity.ssn") : null;
 
   return (
     <Screen title={t("profile.title")} back="/home">
+      <Suspense>
+        <WalletReturnNotice />
+      </Suspense>
       <div className="space-y-5 pt-2">
         <Card className="flex items-center gap-4 p-5">
           <Avatar name={p.fullName} size="lg" />
           <div className="min-w-0 flex-1">
             <h2 className="truncate font-display text-title font-semibold">{p.fullName}</h2>
+            <p className="truncate text-caption text-muted-foreground">{email}</p>
             {p.verified && idLabel ? (
               <p className="mt-0.5 flex items-center gap-1 text-caption font-semibold text-positive">
                 <BadgeCheck className="size-4" aria-hidden />
@@ -90,7 +103,6 @@ export default function ProfilePage() {
             ) : (
               <p className="mt-0.5 text-caption text-muted-foreground">{t("profile.notVerified")}</p>
             )}
-            {p.bio && <p className="mt-1 text-caption text-muted-foreground">{p.bio}</p>}
           </div>
         </Card>
 
@@ -103,64 +115,44 @@ export default function ProfilePage() {
                 {t("profile.wallet")}
               </span>
             }
-            action={live && p.walletAddress ? <Badge tone="info">{t("move.liveBadge")}</Badge> : <SimulatedBadge />}
+            action={live ? undefined : <SimulatedBadge />}
           />
-          {p.walletAddress ? (
-            <p className="break-all rounded-xl bg-muted px-3 py-2 font-mono text-caption">{p.walletAddress}</p>
+          {handle && <p className="font-display text-title font-semibold">@{handle}</p>}
+          {live && wallet ? (
+            <div className="space-y-2">
+              <p className="break-all rounded-xl bg-muted px-3 py-2 font-mono text-caption">{wallet.url}</p>
+              <p className="text-caption text-muted-foreground">{t("wallet.cap", { amount: amountIn(wallet.capMinor, wallet.assetCode) })}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(wallet.url).catch(() => {});
+                    toast.success(t("app.copied"));
+                  }}
+                >
+                  <Copy className="size-4" aria-hidden />
+                  {t("app.copy")}
+                </Button>
+                <Button variant="outline" onClick={() => setDisconnectOpen(true)}>
+                  <Unplug className="size-4" aria-hidden />
+                  {t("wallet.disconnect")}
+                </Button>
+              </div>
+            </div>
+          ) : live ? (
+            <>
+              <p className="mb-4 text-body text-muted-foreground">{t("wallet.connectBody")}</p>
+              <ConnectWallet returnTo="/profile" />
+            </>
           ) : (
-            <p className="text-body text-muted-foreground">{t("profile.walletNone")}</p>
+            <>
+              <p className="text-body text-muted-foreground">{t("wallet.notLive")}</p>
+              {p.walletAddress && <p className="mt-2 break-all rounded-xl bg-muted px-3 py-2 font-mono text-caption">{p.walletAddress}</p>}
+              <Button variant="outline" className="mt-3 w-full" onClick={() => setWalletOpen(true)}>
+                {t("profile.walletEdit")}
+              </Button>
+            </>
           )}
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {p.walletAddress && (
-              <Button
-                variant="secondary"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(p.walletAddress!).catch(() => {});
-                  toast.success(t("app.copied"));
-                }}
-              >
-                <Copy className="size-4" aria-hidden />
-                {t("app.copy")}
-              </Button>
-            )}
-            <Button variant="outline" className={p.walletAddress ? "" : "col-span-2"} onClick={() => setWalletOpen(true)}>
-              {t("profile.walletEdit")}
-            </Button>
-          </div>
-        </Card>
-
-        <Card aria-labelledby="pf-bank">
-          <CardHeader
-            id="pf-bank"
-            title={
-              <span className="flex items-center gap-2">
-                <Landmark className="size-4 text-primary" aria-hidden />
-                {t("profile.bankTitle")}
-              </span>
-            }
-            action={<SimulatedBadge />}
-          />
-          <dl className="mb-3 divide-y divide-border">
-            <Row label={t("profile.accountTitle")} value={user.account.lastFour ? `${user.account.name} ••${user.account.lastFour}` : t("profile.accountNotOpen")} />
-            {user.linkedBank && <Row label={user.linkedBank.institution} value={`${user.linkedBank.accountName} ••${user.linkedBank.mask}`} />}
-          </dl>
-          {!user.linkedBank && <p className="mb-3 text-body text-muted-foreground">{t("profile.bankNone")}</p>}
-          <div className="grid grid-cols-2 gap-2">
-            <ButtonLink href="/add-money" variant="secondary" className={user.linkedBank ? "" : "col-span-2"}>
-              {user.linkedBank ? t("bank.ctaDeposit") : t("profile.bankConnect")}
-            </ButtonLink>
-            {user.linkedBank && (
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  await api("/api/bank/link", { method: "DELETE" });
-                  toast.success(t("profile.bankUnlinked"));
-                }}
-              >
-                {t("profile.bankUnlink")}
-              </Button>
-            )}
-          </div>
         </Card>
 
         <Card aria-labelledby="pf-identity">
@@ -220,69 +212,112 @@ export default function ProfilePage() {
 
         <Card aria-labelledby="pf-about">
           <CardHeader id="pf-about" title={t("profile.aboutTitle")} />
-          <dl className="mb-3 divide-y divide-border">
-            <Row label={t("profile.modePayments")} value={live ? t("profile.modeLive") : t("profile.modeSimulated")} />
-            <Row label={t("profile.modeAi")} value={modes.ai === "live" ? "AI" : t("profile.modeSimulated")} />
-            <Row label={t("profile.modeMarket")} value={modes.market === "live" ? t("move.liveBadge") : t("grow.snapshotNote")} />
-          </dl>
-          <p className="text-caption text-muted-foreground">{t("profile.aboutPrototype")}</p>
+          <p className="text-body">{t("app.mission")}</p>
+          <p className="mt-2 text-caption text-muted-foreground">{t("profile.aboutPrototype")}</p>
           <p className="mt-2 text-caption text-muted-foreground">{t("profile.aboutBody")}</p>
+          {/* Tapping the version 5 times reveals the demo tools (presenters only). */}
+          <button type="button" onClick={tapVersion} className="mt-2 min-h-8 text-caption text-muted-foreground">
+            {t("profile.version")}
+          </button>
         </Card>
 
-        <section aria-labelledby="pf-acct" className="space-y-3">
-          <SectionTitle id="pf-acct">{t("profile.demo")}</SectionTitle>
-          <Card className="space-y-3">
-            <p className="text-body font-semibold">{t("profile.persona")}</p>
-            <div className="grid grid-cols-2 gap-2">
-              {(["sudeep", "marcus"] as const).map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  disabled={busy}
-                  aria-pressed={persona === id}
-                  onClick={() => switchTo(id)}
-                  className={`flex min-h-14 items-center gap-2 rounded-xl border px-3 text-left text-body font-semibold transition-colors ${persona === id ? "border-primary bg-positive-soft text-primary" : "border-input bg-card hover:bg-muted"}`}
-                >
-                  {id === "sudeep" ? <UserRound className="size-4" aria-hidden /> : <GraduationCap className="size-4" aria-hidden />}
-                  {id === "sudeep" ? "Sudeep Joshi" : "Marcus Johnson"}
-                </button>
-              ))}
-            </div>
-            {!live && (
-              <div className="border-t border-border pt-2">
-                <Switch checked={user.demo.failNextSend} onChange={(v) => api("/api/demo/flags", { method: "PATCH", body: { failNextSend: v } })} label={t("profile.failNext")} hint={t("profile.failNextHint")} />
-              </div>
-            )}
-          </Card>
-          <Button variant="outline" className="w-full" disabled={busy} onClick={() => reset("/onboarding")}>
-            {t("profile.replayOnboarding")}
-          </Button>
-          <Button variant="outline" className="w-full" disabled={busy} onClick={() => setResetOpen(true)}>
-            <RotateCcw className="size-4" aria-hidden />
-            {t("profile.reset")}
-          </Button>
-          <Button variant="ghost" className="w-full text-negative" onClick={signOut}>
+        <section aria-labelledby="pf-account" className="space-y-2">
+          <SectionTitle id="pf-account">{t("profile.accountSecurity")}</SectionTitle>
+          <Button variant="outline" className="w-full" disabled={busy} onClick={signOut}>
             <LogOut className="size-4" aria-hidden />
             {t("profile.signOut")}
           </Button>
+          <Button variant="ghost" className="w-full text-negative" onClick={() => setDeleteOpen(true)}>
+            <Trash2 className="size-4" aria-hidden />
+            {t("profile.deleteAccount")}
+          </Button>
         </section>
+
+        {demoTools && (
+          <section aria-labelledby="pf-demo" className="space-y-3 rounded-2xl border border-dashed border-input p-3">
+            <div className="flex items-center justify-between gap-2">
+              <SectionTitle id="pf-demo">{t("profile.demo")}</SectionTitle>
+              <Button variant="ghost" onClick={() => toggleDemoTools(false)}>
+                {t("profile.demoHide")}
+              </Button>
+            </div>
+            <p className="text-caption text-muted-foreground">{t("profile.demoBody")}</p>
+            <dl className="divide-y divide-border rounded-xl bg-card px-3">
+              <Row label={t("profile.modePayments")} value={live ? t("profile.modeLive") : t("profile.modeSimulated")} />
+              <Row label={t("profile.modeAi")} value={modes.ai === "live" ? "AI" : t("profile.modeSimulated")} />
+              <Row label={t("profile.modeMarket")} value={modes.market === "live" ? t("move.liveBadge") : t("grow.snapshotNote")} />
+            </dl>
+            {!live && (
+              <Card>
+                <Switch checked={user.demo.failNextSend} onChange={(v) => api("/api/demo/flags", { method: "PATCH", body: { failNextSend: v } })} label={t("profile.failNext")} hint={t("profile.failNextHint")} />
+              </Card>
+            )}
+          </section>
+        )}
       </div>
 
-      <WalletSheet open={walletOpen} onOpenChange={setWalletOpen} current={p.walletAddress} />
+      {!live && <WalletSheet open={walletOpen} onOpenChange={setWalletOpen} current={p.walletAddress} />}
 
-      <Sheet open={resetOpen} onOpenChange={setResetOpen} title={t("profile.resetConfirmTitle")}>
-        <p className="text-body text-muted-foreground">{t("profile.resetConfirmBody")}</p>
-        <Button variant="danger" size="lg" className="mt-4" loading={busy} onClick={() => reset("/")}>
-          {t("profile.reset")}
+      <Sheet open={disconnectOpen} onOpenChange={setDisconnectOpen} title={t("wallet.disconnect")}>
+        <p className="text-body text-muted-foreground">{t("wallet.disconnectConfirm")}</p>
+        <Button variant="danger" size="lg" className="mt-4" loading={busy} onClick={disconnect}>
+          {t("wallet.disconnect")}
         </Button>
-        <Button variant="ghost" className="mt-2 w-full" onClick={() => setResetOpen(false)}>
+        <Button variant="ghost" className="mt-2 w-full" onClick={() => setDisconnectOpen(false)}>
           {t("app.cancel")}
         </Button>
       </Sheet>
+
+      <DeleteAccountSheet open={deleteOpen} onOpenChange={setDeleteOpen} />
     </Screen>
   );
 }
 
+/** Asks for the password again before permanently deleting the account. */
+function DeleteAccountSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const remove = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/api/auth/account", { method: "DELETE", body: { password } });
+      clearClient();
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload drops everything held in memory for the old session
+      window.location.assign("/");
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : t("app.genericError"));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} title={t("profile.deleteTitle")}>
+      <p className="mb-4 text-body text-muted-foreground">{t("profile.deleteBody")}</p>
+      <Field
+        label={t("login.password")}
+        type="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          setError(null);
+        }}
+        error={error}
+      />
+      <Button variant="danger" size="lg" className="mt-4" loading={busy} disabled={!password} onClick={remove}>
+        {t("profile.deleteConfirm")}
+      </Button>
+      <Button variant="ghost" className="mt-2 w-full" onClick={() => onOpenChange(false)}>
+        {t("app.cancel")}
+      </Button>
+    </Sheet>
+  );
+}
+
+/** Offline mode only: real wallets are connected through the wallet's own approval screen. */
 function WalletSheet({ open, onOpenChange, current }: { open: boolean; onOpenChange: (o: boolean) => void; current: string | null }) {
   const [value, setValue] = useState(current ?? "");
   const [error, setError] = useState<string | null>(null);

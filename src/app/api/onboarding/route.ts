@@ -1,13 +1,11 @@
 import { z } from "zod";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 import { normalizeWalletAddress } from "@/lib/server/payments";
-import { interledgerConfigured } from "@/lib/server/payments/interledger";
-import { isDemoWallet } from "@/lib/server/payments/mock";
-import { config } from "@/lib/server/config";
+import { claimHandle } from "@/lib/server/users";
 import type { CoachMessage } from "@/lib/types";
 
 /**
- * POST /api/onboarding: completes signup for the active persona.
+ * POST /api/onboarding: completes the profile for the signed-in account.
  * Identity verification is simulated. Only the last 4 characters of any ID
  * number reach the server; the full number never leaves the browser.
  */
@@ -32,16 +30,13 @@ const WELCOME_LESSON: Record<string, { lessonId: string; title: string; body: st
 };
 
 export async function POST(req: Request) {
-  return withSession(req, async ({ user }) => {
+  return withSession(req, async ({ record, user }) => {
     const body = await parseBody(req, schema);
     if (body.idType === "passport" && !body.idCountry) {
       throw new ApiError(400, "invalid_input", "Please choose the country that issued your passport.");
     }
-    let wallet = body.walletAddress ? normalizeWalletAddress(body.walletAddress) : user.profile.walletAddress;
-    // The sample wallet offered during signup isn't real; in live mode link the real one we hold keys for.
-    if (wallet && isDemoWallet(wallet) && interledgerConfigured() && config.paymentsMode === "interledger") {
-      wallet = config.op.senderWalletAddress ?? wallet;
-    }
+    // A connected (approved) wallet stays; a typed one is only used for receiving until it's approved.
+    const wallet = body.walletAddress ? normalizeWalletAddress(body.walletAddress) : user.profile.walletAddress;
     const preferred = body.preferredName || body.fullName.split(/\s+/)[0] || body.fullName;
     user.profile = {
       ...user.profile,
@@ -72,14 +67,6 @@ export async function POST(req: Request) {
     };
     user.coach = [welcome, ...user.coach.filter((c) => c.kind !== "welcome")];
 
-    // A new account starts empty; it opens with the first deposit from a linked bank.
-    user.account = { name: "Everyday checking", lastFour: null, balanceCents: 0, currency: "USD" };
-    user.linkedBank = null;
-    user.transactions = [];
-    user.transfers = [];
-    user.requests = [];
-    user.bills = [];
-    user.incoming = undefined;
-    user.budget = { ...user.budget, period: "monthly" };
+    await claimHandle(record, preferred);
   });
 }

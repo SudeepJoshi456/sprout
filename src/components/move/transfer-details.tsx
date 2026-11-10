@@ -5,11 +5,8 @@ import { PaymentTrace } from "./payment-trace";
 import { formatDateTime, formatForeign, formatMoney } from "@/lib/format";
 import type { Transfer } from "@/lib/types";
 import { t } from "@/i18n";
-import { useClientState } from "@/lib/client/hooks";
-
 /** Receipt rows for a transfer, plus the Interledger step trace. */
-export function TransferDetails({ transfer, fellBack }: { transfer: Transfer; fellBack?: boolean }) {
-  const liveMode = useClientState()?.modes.payments === "interledger";
+export function TransferDetails({ transfer }: { transfer: Transfer }) {
   const out = transfer.direction === "out";
   const sentAmount = transfer.debit.value - (out ? transfer.feeCents : 0);
   const rows: Array<[string, React.ReactNode]> = [
@@ -35,7 +32,7 @@ export function TransferDetails({ transfer, fellBack }: { transfer: Transfer; fe
     transfer.mode === "interledger" ? (
       <Badge key="v" tone="info">{t("move.viaInterledger")}</Badge>
     ) : (
-      <SimulatedBadge key="v" label={fellBack ? t("move.viaFallback") : liveMode ? t("move.viaPractice") : t("move.viaMock")} />
+      <SimulatedBadge key="v" label={t("move.viaMock")} />
     ),
   ]);
   if (transfer.note) rows.push([t("move.note"), transfer.note]);

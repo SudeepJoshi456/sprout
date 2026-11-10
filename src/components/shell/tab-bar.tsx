@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, BookOpen, House, Sprout, Wallet } from "lucide-react";
+import { ArrowLeftRight, BookOpen, ChartLine, House, Wallet } from "lucide-react";
 import { cn } from "@/lib/format";
 import { t } from "@/i18n";
 
@@ -10,7 +10,7 @@ const TABS = [
   { href: "/home", label: "tabs.home", Icon: House },
   { href: "/budget", label: "tabs.budget", Icon: Wallet },
   { href: "/move", label: "tabs.move", Icon: ArrowLeftRight },
-  { href: "/grow", label: "tabs.grow", Icon: Sprout },
+  { href: "/grow", label: "tabs.grow", Icon: ChartLine },
   { href: "/learn", label: "tabs.learn", Icon: BookOpen },
 ] as const;
 
@@ -28,7 +28,7 @@ export function TabBar() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-0.5 pt-1.5 text-caption font-medium transition-colors",
+                  "flex min-h-14 flex-col items-center justify-start gap-0.5 px-0.5 pt-1.5 text-center text-[11px] font-medium leading-[13px] transition-colors",
                   active ? "text-primary" : "text-muted-foreground hover:text-foreground",
                 )}
               >

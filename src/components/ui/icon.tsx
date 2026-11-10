@@ -125,9 +125,9 @@ export function CategoryIcon({ category, className }: { category: CategoryId; cl
 }
 
 export const TONE_BG: Record<CardTone, string> = {
-  green: "bg-[#dff0e3] text-[#0d5a2e] dark:bg-[#183522] dark:text-[#8fe0a6]",
-  yellow: "bg-[#f6f3c4] text-[#4d4a05] dark:bg-[#33320f] dark:text-[#ecec85]",
-  sky: "bg-[#dceef4] text-[#14506a] dark:bg-[#11303a] dark:text-[#93d4ea]",
-  peach: "bg-[#fbe5d6] text-[#7a3a10] dark:bg-[#3a2416] dark:text-[#f6b98f]",
-  plum: "bg-[#ece6f8] text-[#46307f] dark:bg-[#2a2140] dark:text-[#c9b8f7]",
+  green: "bg-positive-soft text-primary",
+  yellow: "bg-practice-soft text-practice",
+  sky: "bg-secondary text-secondary-foreground",
+  peach: "bg-practice-soft text-practice",
+  plum: "bg-positive-soft text-primary",
 };
