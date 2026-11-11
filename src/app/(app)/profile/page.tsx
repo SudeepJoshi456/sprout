@@ -20,6 +20,7 @@ import { useAppState } from "@/lib/client/hooks";
 import { CURRENCY_NAMES } from "@/data/fx";
 import type { Settings } from "@/lib/types";
 import { t } from "@/i18n";
+import { toWalletUrl } from "@/lib/wallet-address";
 
 type Theme = "system" | "light" | "dark";
 
@@ -350,9 +351,9 @@ function WalletSheet({ open, onOpenChange, current }: { open: boolean; onOpenCha
         autoCapitalize="none"
         autoCorrect="off"
         spellCheck={false}
-        placeholder="https://ilp.interledger-test.dev/your-name"
+        placeholder="your-name or full wallet address"
       />
-      <Button size="lg" className="mt-4" loading={busy} disabled={!value.trim()} onClick={() => save(value.trim())}>
+      <Button size="lg" className="mt-4" loading={busy} disabled={!value.trim()} onClick={() => save(toWalletUrl(value))}>
         {t("profile.walletSave")}
       </Button>
       {current && (

@@ -74,7 +74,7 @@ export const en = {
     connectTitle: "Connect your Interledger wallet",
     connectBody: "Enter your wallet address. Your wallet will ask you to log in and approve Sprout. That's how we know it's yours.",
     addressLabel: "Wallet address",
-    addressHint: "Find it in your test wallet, e.g. https://ilp.interledger-test.dev/yourname",
+    addressHint: "Just type your wallet name, the part after the last slash. You can also paste the full address.",
     capLabel: "Spending limit for Sprout",
     capHint: "Sprout can never send more than this from your wallet in total. You can disconnect anytime.",
     connect: "Continue to my wallet",

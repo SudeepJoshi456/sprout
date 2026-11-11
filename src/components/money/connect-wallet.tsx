@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { api, ApiClientError, invalidate } from "@/lib/client/api";
 import { cn } from "@/lib/format";
 import { t } from "@/i18n";
+import { isFullAddress, toWalletUrl, walletNameFrom, WALLET_HOST } from "@/lib/wallet-address";
 
 const CAPS = [5_000, 20_000, 50_000];
+const LAST_WALLET_KEY = "sprout:last-wallet";
 
 export type WalletReturn = "/profile" | "/onboarding" | "/move" | "/home";
 
@@ -46,13 +48,25 @@ export function ConnectWallet({ returnTo, className }: { returnTo: WalletReturn;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Suggest the wallet name this browser connected last time.
+  useEffect(() => {
+    try {
+      const last = localStorage.getItem(LAST_WALLET_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after mount
+      if (last) setAddress((a) => a || last);
+    } catch {}
+  }, []);
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!address.trim()) return setError(t("wallet.addressHint"));
     setBusy(true);
     setError(null);
     try {
-      const res = await api<{ redirect: string }>("/api/wallet/connect", { method: "POST", body: { walletAddress: address.trim(), capCents: cap, returnTo } });
+      const res = await api<{ redirect: string }>("/api/wallet/connect", { method: "POST", body: { walletAddress: toWalletUrl(address), capCents: cap, returnTo } });
+      try {
+        localStorage.setItem(LAST_WALLET_KEY, walletNameFrom(address));
+      } catch {}
       const target = new URL(res.redirect);
       if (target.protocol !== "https:") throw new ApiClientError(0, "bad_redirect", t("wallet.failed"));
       window.location.assign(target.toString());
@@ -68,23 +82,30 @@ export function ConnectWallet({ returnTo, className }: { returnTo: WalletReturn;
         <label htmlFor="wallet-address" className="mb-1.5 block text-body font-semibold">
           {t("wallet.addressLabel")}
         </label>
-        <input
-          id="wallet-address"
-          type="url"
-          inputMode="url"
-          autoComplete="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          value={address}
-          onChange={(e) => {
-            setAddress(e.target.value);
-            setError(null);
-          }}
-          placeholder="https://ilp.interledger-test.dev/yourname"
-          aria-describedby="wallet-address-hint wallet-error"
-          aria-invalid={Boolean(error)}
-          className="h-12 w-full rounded-xl border border-input bg-card px-3 text-[16px] outline-none focus:border-primary focus:ring-2 focus:ring-ring/30"
-        />
+        <div className="flex h-12 w-full items-center overflow-hidden rounded-xl border border-input bg-card focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/30">
+          {!isFullAddress(address) && (
+            <span className="shrink-0 select-none pl-3 text-[16px] text-muted-foreground" aria-hidden>
+              {WALLET_HOST}/
+            </span>
+          )}
+          <input
+            id="wallet-address"
+            type="text"
+            inputMode="url"
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            value={address}
+            onChange={(e) => {
+              setAddress(walletNameFrom(e.target.value));
+              setError(null);
+            }}
+            placeholder="yourname"
+            aria-describedby="wallet-address-hint wallet-error"
+            aria-invalid={Boolean(error)}
+            className={cn("h-full min-w-0 flex-1 bg-transparent pr-3 text-[16px] outline-none", isFullAddress(address) ? "pl-3" : "pl-0.5")}
+          />
+        </div>
         <p id="wallet-address-hint" className="mt-1 text-caption text-muted-foreground">
           {t("wallet.addressHint")}
         </p>
