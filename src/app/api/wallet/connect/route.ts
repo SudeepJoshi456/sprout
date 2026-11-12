@@ -36,16 +36,26 @@ export async function POST(req: Request) {
       const body = await parseBody(req, schema);
       const wallet = normalizeWalletAddress(body.walletAddress);
       const state = newConnectState();
+      let step = "start";
       try {
         const { redirect, pending } = await startWalletConnect(wallet, body.capCents, `${appOrigin(req)}/api/wallet/callback?state=${state}`);
+        step = "save";
         await savePendingConnect(state, { ...pending, userId, returnTo: body.returnTo });
         return { redirect };
       } catch (err) {
+        if (step === "save") {
+          console.error("[wallet] connect failed saving the pending approval", err);
+          throw new ApiError(500, "storage_error", "Sprout couldn't save your approval request (database problem). Please try again.");
+        }
         if (err instanceof PaymentUserError) throw new ApiError(422, err.code, err.message);
         console.error("[wallet] connect failed", err);
         // A bad key or key ID makes the wallet's auth server reject Sprout's signed request (401).
         if (err instanceof KeySetupError || (err instanceof OpenPaymentsClientError && err.status === 401)) {
           throw new ApiError(500, "server_key", "Sprout's own wallet key isn't set up correctly on this server, so no wallet can connect yet. Your address is fine.");
+        }
+        // The wallet answered but refused the request (e.g. a bad return link): show its reason.
+        if (err instanceof OpenPaymentsClientError && err.status) {
+          throw new ApiError(502, "wallet_refused", `The wallet refused the request (${err.status}${err.description ? `: ${err.description}` : ""}).`);
         }
         throw new ApiError(502, "wallet_unreachable", "We couldn't reach that wallet's server. Check the address and try again.");
       }

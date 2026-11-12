@@ -12,6 +12,17 @@ function pick<T extends string>(value: string | undefined, allowed: readonly T[]
 
 const DEV_SECRET = "sprout-dev-secret-change-me";
 
+/** "sprout.vercel.app/", " https://sprout.vercel.app " → "https://sprout.vercel.app". */
+function normalizeAppUrl(value: string | undefined): string | null {
+  const v = value?.trim().replace(/^["']|["']$/g, "");
+  if (!v) return null;
+  try {
+    return new URL(/^https?:\/\//i.test(v) ? v : `https://${v}`).origin;
+  } catch {
+    return null;
+  }
+}
+
 export const config = {
   paymentsMode: pick<PaymentsMode>(process.env.PAYMENTS_MODE, ["mock", "interledger"], "mock"),
   aiMode: pick<AiMode>(process.env.AI_MODE, ["mock", "live"], "mock"),
@@ -19,7 +30,7 @@ export const config = {
 
   sessionSecret: process.env.SESSION_SECRET || DEV_SECRET,
   /** Public URL wallets send people back to after approving, e.g. https://sprout.vercel.app. */
-  appUrl: process.env.APP_URL?.replace(/\/$/, "") || null,
+  appUrl: normalizeAppUrl(process.env.APP_URL),
   dataDir: process.env.DATA_DIR || (process.env.VERCEL ? "/tmp/sprout-data" : ".data"),
 
   ai: {
