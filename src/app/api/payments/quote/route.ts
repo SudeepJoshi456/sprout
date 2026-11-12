@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 import { createQuote, liveMode, normalizeWalletAddress } from "@/lib/server/payments";
 import { getLinkedWallet } from "@/lib/server/wallet-link";
+import { findByWallet, memberLabel, setWalletOwner } from "@/lib/server/users";
 
 /**
  * POST /api/payments/quote: resolves the recipient and returns a signed quote
@@ -18,7 +19,7 @@ const schema = z.object({
 export async function POST(req: Request) {
   return withSession(
     req,
-    async ({ userId, user }) => {
+    async ({ userId, user, record }) => {
       const body = await parseBody(req, schema);
       const receiverWallet = normalizeWalletAddress(body.receiver);
       const senderWallet = liveMode() ? (await getLinkedWallet(userId))?.wallet : (user.profile.walletAddress ?? "https://ilp.interledger-test.dev/sprout-practice");
@@ -26,10 +27,15 @@ export async function POST(req: Request) {
         throw new ApiError(409, "wallet_not_connected", "Connect your wallet in Profile before sending money.");
       }
       const contact = user.contacts.find((c) => c.walletAddress === receiverWallet);
+      // A Sprout member's own name beats the wallet's public name (often the same for every wallet on one account).
+      const member = await findByWallet(receiverWallet);
+      // Backfill for wallets connected before the owner lookup existed.
+      if (liveMode()) await setWalletOwner(senderWallet, userId).catch(() => undefined);
       const { quote, steps } = await createQuote({
         senderWallet,
         receiverWallet,
-        receiverName: body.name || contact?.name || "",
+        receiverName: (member && memberLabel(member)) || contact?.name || body.name || "",
+        senderName: memberLabel(record),
         amountCents: body.amountCents,
       });
       return { quote, steps };

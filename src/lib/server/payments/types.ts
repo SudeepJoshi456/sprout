@@ -5,6 +5,8 @@ export interface QuoteInput {
   receiverWallet: string;
   /** Amount the user typed, in USD cents. Fees are shown on top of this. */
   amountCents: number;
+  /** Shown in the receiver's wallet history. */
+  senderName?: string;
 }
 
 export interface ProviderQuote {
@@ -34,6 +36,8 @@ export interface ExecuteInput {
   senderWallet?: string;
   idempotencyKey: string;
   note?: string;
+  /** Shown in the sender's wallet history, e.g. "Maya Torres (@maya)". */
+  receiverName?: string;
   grants?: GrantStore;
 }
 

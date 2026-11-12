@@ -73,6 +73,8 @@ export async function createQuote(args: {
   senderWallet: string;
   receiverWallet: string;
   receiverName: string;
+  /** Shown to the receiver in their wallet history, e.g. "Ana López (@ana)". */
+  senderName?: string;
   amountCents: number;
 }): Promise<{ quote: PaymentQuote; steps: PaymentStep[] }> {
   const provider = primary();
@@ -114,7 +116,7 @@ export function executeQuote(q: PaymentQuote, idempotencyKey: string, note: stri
     if (q.mode === "interledger") {
       if (!grants) throw new ApiError(409, "wallet_not_connected", "Connect your wallet in Profile before sending money.");
       const r = await interledgerProvider
-        .execute({ externalQuoteId: q.externalQuoteId, senderWallet: q.senderWallet, idempotencyKey, note, grants })
+        .execute({ externalQuoteId: q.externalQuoteId, senderWallet: q.senderWallet, idempotencyKey, note, receiverName: q.receiverName, grants })
         .catch(mapError);
       return { mode: "interledger", externalId: r.externalId, steps: r.steps };
     }

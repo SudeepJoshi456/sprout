@@ -74,6 +74,8 @@ export interface Transaction {
   amountCents: number; // negative = money out
   category: CategoryId;
   transferId?: string;
+  /** Added by hand (cash, card or anything outside the wallet), so it can be deleted. */
+  manual?: boolean;
 }
 
 export interface BudgetCategory {
@@ -272,6 +274,10 @@ export interface WalletActivityItem {
   at: string;
   description: string | null;
   counterparty: string | null;
+  /** Who it was to or from, when Sprout knows (e.g. "Maya Torres (@maya)"). */
+  counterpartyName?: string | null;
+  /** The note typed when sending, if any. */
+  note?: string | null;
   status: "completed" | "pending" | "failed";
 }
 

@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/server/http";
 import { finishWalletConnect } from "@/lib/server/payments/interledger";
-import { saveUser } from "@/lib/server/users";
+import { saveUser, setWalletOwner } from "@/lib/server/users";
 import { saveLinkedWallet, takePendingConnect } from "@/lib/server/wallet-link";
 
 /**
@@ -41,6 +41,7 @@ export async function GET(req: Request) {
     if (record.state.profile.walletAddress !== pending.wallet) record.state.incoming = undefined;
     record.state.profile.walletAddress = pending.wallet;
     await saveUser(record);
+    await setWalletOwner(pending.wallet, record.id);
     return back(pending.returnTo, "connected");
   } catch (err) {
     console.error("[wallet] approval could not be completed", err);

@@ -49,6 +49,7 @@ function Budget() {
   const [editing, setEditing] = useState<CategorySummary | null>(null);
   const [billEditing, setBillEditing] = useState<Bill | null>(null);
   const [addingBill, setAddingBill] = useState(false);
+  const [addingExpense, setAddingExpense] = useState(false);
   const [recat, setRecat] = useState<Transaction | null>(null);
 
   const [pendingPeriod, setPendingPeriod] = useState<BudgetPeriod | null>(null);
@@ -243,12 +244,13 @@ function Budget() {
           </Card>
         )}
 
-        {tab === "transactions" && <Transactions transactions={user.transactions} money={money} onPick={setRecat} />}
+        {tab === "transactions" && <Transactions transactions={user.transactions} money={money} onPick={setRecat} onAdd={() => setAddingExpense(true)} />}
       </div>
 
       {editing && <LimitSheet key={editing.id} cat={editing} months={r.monthsInPeriod} onClose={() => setEditing(null)} />}
       {billEditing && <SetAsideSheet key={billEditing.id} bill={billEditing} onClose={() => setBillEditing(null)} />}
       {addingBill && <AddBillSheet onClose={() => setAddingBill(false)} />}
+      {addingExpense && <AddExpenseSheet onClose={() => setAddingExpense(false)} />}
       <RecategorizeSheet tx={recat} onClose={() => setRecat(null)} />
     </Screen>
   );
@@ -265,10 +267,12 @@ function Transactions({
   transactions,
   money,
   onPick,
+  onAdd,
 }: {
   transactions: Transaction[];
   money: (n: number) => string;
   onPick: (tx: Transaction) => void;
+  onAdd: () => void;
 }) {
   const [q, setQ] = useState("");
   const groups = useMemo(() => {
@@ -289,6 +293,11 @@ function Transactions({
   return (
     <section aria-labelledby="bud-tx">
       <SectionTitle id="bud-tx">{t("budget.transactions")}</SectionTitle>
+      <p className="mb-3 text-caption text-muted-foreground">{t("budget.txSources")}</p>
+      <Button variant="outline" className="mb-3 w-full" onClick={onAdd}>
+        <Plus className="size-4" aria-hidden />
+        {t("budget.addExpense")}
+      </Button>
       <Field
         label={t("budget.search")}
         labelHidden
@@ -317,6 +326,7 @@ function Transactions({
                         <span className="block truncate text-body font-medium">{tx.description}</span>
                         <span className="block truncate text-caption text-muted-foreground">
                           {incoming ? t("budget.moneyIn") : CATEGORIES[tx.category].label}
+                          {tx.manual ? ` · ${t("budget.addedByYou")}` : tx.transferId ? ` · ${t("budget.viaWallet")}` : ""}
                         </span>
                       </span>
                       <span className={cn("tnum text-body font-semibold", incoming && "text-positive")}>
@@ -505,6 +515,19 @@ function RecategorizeSheet({ tx, onClose }: { tx: Transaction | null; onClose: (
       setBusy(null);
     }
   };
+  const remove = async () => {
+    if (!tx) return;
+    setBusy("other");
+    try {
+      await api(`/api/transactions/${tx.id}`, { method: "DELETE" });
+      toast.success(t("budget.expenseDeleted"));
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof ApiClientError ? e.message : t("app.genericError"));
+    } finally {
+      setBusy(null);
+    }
+  };
   return (
     <Sheet open={!!tx} onOpenChange={(o) => !o && onClose()} title={tx ? t("budget.categoryFor", { merchant: tx.description }) : t("budget.changeCategory")}>
       <ul role="radiogroup" aria-label={t("budget.changeCategory")} className="grid grid-cols-2 gap-2">
@@ -531,6 +554,75 @@ function RecategorizeSheet({ tx, onClose }: { tx: Transaction | null; onClose: (
           );
         })}
       </ul>
+      {tx?.manual && (
+        <Button variant="ghost" className="mt-3 w-full text-negative" disabled={busy !== null} onClick={remove}>
+          {t("budget.deleteExpense")}
+        </Button>
+      )}
+    </Sheet>
+  );
+}
+
+function AddExpenseSheet({ onClose }: { onClose: () => void }) {
+  const today = new Date().toLocaleDateString("en-CA");
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(today);
+  const [category, setCategory] = useState<CategoryId>("groceries");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cents = Math.round(Number(amount.replace(/[$,\s]/g, "")) * 100);
+    if (!description.trim()) return setError(t("budget.expenseNameNeeded"));
+    if (!Number.isFinite(cents) || cents <= 0) return setError(t("budget.billAmountNeeded"));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError(t("budget.expenseDateNeeded"));
+    setError(null);
+    setBusy(true);
+    try {
+      await api("/api/transactions", { method: "POST", body: { description: description.trim(), amountCents: cents, category, date } });
+      toast.success(t("budget.expenseAdded", { name: description.trim() }));
+      onClose();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : t("app.genericError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Sheet open onOpenChange={(o) => !o && onClose()} title={t("budget.addExpense")}>
+      <form onSubmit={submit} className="space-y-4" noValidate>
+        <Field label={t("budget.expenseName")} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={60} placeholder={t("budget.expenseNamePlaceholder")} autoComplete="off" />
+        <Field label={t("budget.billAmount")} value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="0.00" autoComplete="off" />
+        <Field label={t("budget.expenseDate")} type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} />
+        <fieldset>
+          <legend className="mb-1.5 text-body font-medium">{t("budget.billCategory")}</legend>
+          <div className="flex flex-wrap gap-2">
+            {EDITABLE_CATEGORIES.map((id) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={category === id}
+                onClick={() => setCategory(id)}
+                className={cn(
+                  "min-h-10 rounded-full border px-3 text-caption font-medium transition-colors",
+                  category === id ? "border-primary bg-secondary" : "border-border hover:bg-muted",
+                )}
+              >
+                {CATEGORIES[id].label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        {error && (
+          <p role="alert" className="text-caption text-negative">
+            {error}
+          </p>
+        )}
+        <Button type="submit" size="lg" className="w-full" loading={busy}>
+          {t("budget.addExpense")}
+        </Button>
+      </form>
     </Sheet>
   );
 }

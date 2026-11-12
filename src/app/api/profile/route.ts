@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 import { liveMode, normalizeWalletAddress } from "@/lib/server/payments";
+import { setWalletOwner } from "@/lib/server/users";
 
 /** PATCH /api/profile: settings, display currency, name, and (offline mode only) the wallet address. */
 const schema = z.object({
@@ -15,7 +16,7 @@ const schema = z.object({
 });
 
 export async function PATCH(req: Request) {
-  return withSession(req, async ({ user }) => {
+  return withSession(req, async ({ userId, user }) => {
     const body = await parseBody(req, schema);
     if (body.showHomeCurrency !== undefined) user.settings.showHomeCurrency = body.showHomeCurrency;
     if (body.notifications) user.settings.notifications = { ...user.settings.notifications, ...body.notifications };
@@ -26,6 +27,7 @@ export async function PATCH(req: Request) {
       const next = body.walletAddress ? normalizeWalletAddress(body.walletAddress) : null;
       if (next !== user.profile.walletAddress) user.incoming = undefined;
       user.profile.walletAddress = next;
+      if (next) await setWalletOwner(next, userId);
     }
     if (body.preferredName) user.profile.preferredName = body.preferredName;
   });

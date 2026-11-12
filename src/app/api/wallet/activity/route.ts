@@ -2,6 +2,7 @@ import { connectedWallet } from "@/lib/server/connected";
 import { errorResponse, requireUser } from "@/lib/server/http";
 import { listOwnIncomingPayments, listOwnOutgoingPayments } from "@/lib/server/payments/interledger";
 import { grantStoreFor } from "@/lib/server/wallet-link";
+import { setWalletOwner } from "@/lib/server/users";
 import type { WalletActivity, WalletActivityItem as ActivityItem } from "@/lib/types";
 
 /**
@@ -20,16 +21,48 @@ export async function GET(req: Request) {
       listOwnOutgoingPayments(link.wallet, grantStoreFor(record.id, link)),
     ]);
 
+    // Sprout's own record of each payment knows the person's name, even for payments
+    // made before names were written into the wallet's history.
+    await setWalletOwner(link.wallet, record.id).catch(() => undefined);
+    const byExternal = new Map(record.state.transfers.filter((t) => t.externalId).map((t) => [t.externalId!, t]));
+    const named = (description: string | null, prefix: "From " | "To ") =>
+      description?.startsWith(prefix) ? description.slice(prefix.length).split(" · ")[0] : null;
+
     const items: ActivityItem[] = [];
     if (incoming.status === "fulfilled") {
       for (const ip of incoming.value) {
         if (ip.received.value <= 0) continue;
-        items.push({ id: ip.url, direction: "in", amount: ip.received.value, currency: ip.received.currency, at: ip.createdAt, description: ip.description, counterparty: null, status: ip.completed ? "completed" : "pending" });
+        const known = byExternal.get(ip.url);
+        const request = record.state.requests.find((r) => r.incomingPaymentUrl === ip.url);
+        items.push({
+          id: ip.url,
+          direction: "in",
+          amount: ip.received.value,
+          currency: ip.received.currency,
+          at: ip.createdAt,
+          description: ip.description,
+          counterparty: null,
+          counterpartyName: named(ip.description, "From ") ?? (request ? "Payment request" : known?.counterpartyName ?? null),
+          note: request?.note ?? null,
+          status: ip.completed ? "completed" : "pending",
+        });
       }
     }
     if (outgoing.status === "fulfilled") {
       for (const op of outgoing.value) {
-        items.push({ id: op.url, direction: "out", amount: op.sent.value, currency: op.sent.currency, at: op.createdAt, description: op.description, counterparty: op.receiver, status: op.failed ? "failed" : op.sent.value > 0 ? "completed" : "pending" });
+        const known = byExternal.get(op.url);
+        items.push({
+          id: op.url,
+          direction: "out",
+          amount: op.sent.value,
+          currency: op.sent.currency,
+          at: op.createdAt,
+          description: op.description,
+          counterparty: known?.counterpartyWallet ?? op.receiver,
+          counterpartyName: known?.counterpartyName ?? named(op.description, "To "),
+          note: known?.note ?? null,
+          status: op.failed ? "failed" : op.sent.value > 0 ? "completed" : "pending",
+        });
       }
     }
     items.sort((a, b) => b.at.localeCompare(a.at));

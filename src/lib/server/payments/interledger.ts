@@ -327,7 +327,7 @@ export const interledgerProvider: PaymentsProvider = {
     return { url: w.id, assetCode: w.assetCode, publicName: w.publicName ?? null };
   },
 
-  async quote({ senderWallet, receiverWallet, amountCents }) {
+  async quote({ senderWallet, receiverWallet, amountCents, senderName }) {
     const c = await client();
     const rec = new StepRecorder(false);
 
@@ -365,7 +365,7 @@ export const interledgerProvider: PaymentsProvider = {
             ...(sameAsset
               ? { incomingAmount: { value: fromMinor(sendMinor, receiver.assetScale), assetCode: receiver.assetCode, assetScale: receiver.assetScale } }
               : {}),
-            metadata: { description: "Sent with Sprout" },
+            metadata: { description: senderName ? `From ${senderName}` : "Sent with Sprout" },
           },
         ),
       (ip) => ({ detail: `A "bucket" on the receiver's account that this payment will fill: ${ip.id}`, server: hostOf(receiver.resourceServer) }),
@@ -429,7 +429,8 @@ export const interledgerProvider: PaymentsProvider = {
     };
   },
 
-  async execute({ externalQuoteId, senderWallet, idempotencyKey, note, grants }) {
+  async execute({ externalQuoteId, senderWallet, idempotencyKey, note, receiverName, grants }) {
+    const description = [receiverName ? `To ${receiverName}` : null, note?.trim() || null].filter(Boolean).join(" · ") || "Sprout payment";
     if (!externalQuoteId) throw new Error("Missing Open Payments quote id");
     if (!senderWallet || !grants) throw new Error("Sending needs the account holder's own wallet grant");
     const c = await client();
@@ -440,7 +441,7 @@ export const interledgerProvider: PaymentsProvider = {
     const create = (accessToken: string) =>
       c.outgoingPayment.create(
         { url: sender.resourceServer, accessToken },
-        { walletAddress: sender.id, quoteId: externalQuoteId, metadata: { idempotencyKey, description: note ?? "Sprout payment" } },
+        { walletAddress: sender.id, quoteId: externalQuoteId, metadata: { idempotencyKey, description } },
       );
 
     let grant = await rec.run(

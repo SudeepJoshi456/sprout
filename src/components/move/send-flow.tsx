@@ -464,12 +464,17 @@ function RecipientStep({ onPick }: { onPick: (r: Recipient) => void }) {
     setChecking(true);
     setError(null);
     try {
-      const res = await api<{ wallet: { url: string; assetCode: string; publicName: string | null } }>(`/api/wallet/resolve?address=${encodeURIComponent(value)}`);
+      const res = await api<{ wallet: { url: string; assetCode: string; publicName: string | null }; member: { name: string | null; handle: string | null } | null }>(
+        `/api/wallet/resolve?address=${encodeURIComponent(value)}`,
+      );
       if (res.wallet.url === (wallet?.url ?? user.profile.walletAddress)) return setError(t("move.errSelf"));
       const known = user.contacts.find((c) => c.walletAddress === res.wallet.url);
+      const m = res.member;
+      const memberName = m ? [m.name, m.handle ? `(@${m.handle})` : null].filter(Boolean).join(" ") || null : null;
       onPick({
         wallet: res.wallet.url,
-        name: name ?? known?.name ?? res.wallet.publicName ?? nameFromWallet(res.wallet.url),
+        // A member's own name first; a wallet's public name is often the same for every wallet on one account.
+        name: memberName ?? name ?? known?.name ?? nameFromWallet(res.wallet.url),
         assetCode: res.wallet.assetCode,
         contactId: known?.id,
       });

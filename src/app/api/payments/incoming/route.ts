@@ -40,7 +40,9 @@ export async function POST(req: Request) {
       }
 
       const now = new Date().toISOString();
-      const label = request ? `Payment request${request.note ? ` · ${request.note}` : ""}` : ip.description ?? "Interledger payment";
+      // Sprout senders label their payments "From Ana López (@ana)".
+      const sender = ip.description?.replace(/^From /, "") || null;
+      const label = request ? `Payment request${request.note ? ` · ${request.note}` : ""}` : sender ?? "Interledger payment";
       const transfer: Transfer = {
         id: randomUUID(),
         direction: "in",

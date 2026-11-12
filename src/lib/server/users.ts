@@ -84,6 +84,27 @@ export async function findByHandle(handle: string) {
   return id ? loadUser(id) : null;
 }
 
+/** Which Sprout member uses a wallet, so payments can show their name, not the wallet's. */
+const walletOwnerKey = (wallet: string) => `wallet-owner:${wallet}`;
+
+export function setWalletOwner(wallet: string, userId: string) {
+  return setJson(walletOwnerKey(wallet), userId);
+}
+
+/** The member whose current wallet this is (a stale entry from a disconnected wallet is ignored). */
+export async function findByWallet(wallet: string) {
+  const id = await getJson<string>(walletOwnerKey(wallet));
+  const record = id ? await loadUser(id) : null;
+  return record && record.state.profile.walletAddress === wallet ? record : null;
+}
+
+/** "Maya Torres (@maya)", or whatever part of that the member has set. */
+export function memberLabel(record: UserRecord) {
+  const name = record.state.profile.fullName || record.state.profile.preferredName;
+  const handle = record.handle ? `@${record.handle}` : "";
+  return name && handle ? `${name} (${handle})` : name || handle || "Sprout member";
+}
+
 /** Standard categories with no limits yet; the person sets their own. */
 const STARTER_CATEGORIES: BudgetCategory[] = [
   { id: "groceries", monthlyLimitCents: 0, essential: true },
