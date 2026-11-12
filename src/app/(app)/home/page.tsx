@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
-import { ArrowDownLeft, BookOpen, CalendarClock, ChartLine, ChevronRight, Plus, Sprout, Wallet, X } from "lucide-react";
+import { ArrowDownLeft, BookOpen, CalendarClock, ChartLine, ChevronRight, Landmark, Plus, Sprout, Wallet, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Money } from "@/components/ui/money";
@@ -92,10 +92,14 @@ function MoneyActions() {
       <ButtonLink href="/move" size="lg" className="mt-4">
         {t("home.sendMoney")}
       </ButtonLink>
-      <nav aria-label={t("home.quickActions")} className="mt-2 grid grid-cols-2 gap-2">
+      <nav aria-label={t("home.quickActions")} className="mt-2 grid grid-cols-3 gap-1">
         <Link href="/add-money" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl text-body font-semibold text-primary hover:bg-muted">
           <Plus className="size-4" aria-hidden />
           {t("bank.ctaDeposit")}
+        </Link>
+        <Link href="/cash-out" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl text-body font-semibold text-primary hover:bg-muted">
+          <Landmark className="size-4" aria-hidden />
+          {t("bank.ctaCashOut")}
         </Link>
         <Link href="/move?tab=request" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl text-body font-semibold text-primary hover:bg-muted">
           <ArrowDownLeft className="size-4" aria-hidden />

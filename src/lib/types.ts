@@ -250,6 +250,17 @@ export interface UserState {
   learning: Learning;
   coach: CoachMessage[];
   demo: DemoFlags;
+  /** Preview of the planned bank link (Plaid in production). Simulated: no real bank data. */
+  bank?: LinkedBank;
+}
+
+export interface LinkedBank {
+  institution: string;
+  accountName: string;
+  mask: string;
+  linkedAt: string;
+  /** Simulated bank transfers shown in the preview (no money moves). */
+  transfers: { id: string; direction: "in" | "out"; amountCents: number; at: string }[];
 }
 
 export type PaymentsMode = "mock" | "interledger";
