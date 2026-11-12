@@ -23,6 +23,7 @@ import { cn, formatDate, formatForeign, formatMoney } from "@/lib/format";
 import type { PaymentQuote, PaymentStep, Transfer } from "@/lib/types";
 import type { SendResponse } from "@/lib/api-types";
 import { t } from "@/i18n";
+import { toWalletUrl } from "@/lib/wallet-address";
 
 interface Recipient {
   wallet: string;
@@ -301,6 +302,7 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
           </div>
         </dl>
         <p className="text-center text-caption text-muted-foreground">{t("move.quoteExpires")}</p>
+        <p className="text-center text-caption text-muted-foreground">{t("legal.testMoneyNote")}</p>
 
         {sendError && (
           <div role="alert" className="rounded-2xl border border-negative/30 bg-negative-soft p-4">
@@ -440,6 +442,8 @@ function RecipientStep({ onPick }: { onPick: (r: Recipient) => void }) {
   );
   const looksLikeAddress = /^(https:\/\/|\$)[^\s/]+\.[^\s]+/i.test(query.trim());
   const looksLikeHandle = /^@?[\p{L}\p{N}]{2,24}$/u.test(query.trim());
+  // A bare wallet name on the shared test host, e.g. "sudeep-sprout-sender".
+  const walletByName = !looksLikeAddress && /^\/?[\w.-]{2,64}$/.test(query.trim()) ? toWalletUrl(query) : null;
 
   // Other Sprout members are found by their exact @username, on the server.
   useEffect(() => {
@@ -509,6 +513,27 @@ function RecipientStep({ onPick }: { onPick: (r: Recipient) => void }) {
       </Button>
 
       <h2 className="mb-1 mt-6 text-body font-semibold">{q ? t("move.results") : t("move.people")}</h2>
+      {walletByName && !found && (
+        <button
+          type="button"
+          onClick={() => lookup(walletByName)}
+          disabled={checking}
+          className="flex min-h-16 w-full items-center gap-3 py-2 text-left"
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
+            {checking ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Globe className="size-4" aria-hidden />}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-body font-medium">{t("move.payAddress")}</span>
+            <span className="block truncate text-caption text-muted-foreground">{walletByName.replace(/^https:\/\//, "")}</span>
+          </span>
+        </button>
+      )}
+      {walletByName && !found && error && (
+        <p role="alert" className="pb-2 text-body font-medium text-negative">
+          {error}
+        </p>
+      )}
       {looksLikeAddress ? (
         <button
           type="button"

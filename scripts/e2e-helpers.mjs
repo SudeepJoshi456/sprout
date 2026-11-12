@@ -11,6 +11,7 @@ export async function signUpAndOnboard(page, base, { email = uniqueEmail(), full
   await page.goto(`${base}/signup`);
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+  await page.getByRole("checkbox", { name: /18 or older/ }).check();
   await page.getByRole("button", { name: "Create account" }).click();
   await page.waitForURL("**/onboarding");
 

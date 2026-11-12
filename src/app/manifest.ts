@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Sprout: Money that grows with you",
     short_name: "Sprout",
-    description: "Start from zero: sign up without an SSN, move money with Interledger, and practice investing risk-free.",
+    description: "Start from zero: sign up without an SSN, move money with Interledger, and practice investing with play money.",
     start_url: "/",
     display: "standalone",
     orientation: "any",

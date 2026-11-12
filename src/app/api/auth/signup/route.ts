@@ -10,6 +10,7 @@ const schema = z.object({
     const problem = passwordProblem(p);
     if (problem) ctx.addIssue({ code: "custom", message: problem });
   }),
+  acceptedTerms: z.literal(true, { message: "Please confirm you're 18 or older and agree to the Terms and Privacy Policy." }),
 });
 
 /** POST /api/auth/signup: creates an account and signs it in. */

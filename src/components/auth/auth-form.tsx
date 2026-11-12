@@ -20,6 +20,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
+  const [agreeError, setAgreeError] = useState(false);
   const signup = mode === "signup";
 
   const submit = async (e: FormEvent) => {
@@ -29,11 +31,15 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     const pwBad = signup ? passwordProblem(password) : password ? null : t("login.password");
     setEmailError(emailBad ? t("signup.errEmail") : null);
     setPasswordError(pwBad);
-    if (emailBad || pwBad) return;
+    setAgreeError(signup && !agreed);
+    if (emailBad || pwBad || (signup && !agreed)) return;
     setBusy(true);
     try {
       clearClient();
-      const res = await api<{ state: ClientState }>(signup ? "/api/auth/signup" : "/api/auth/login", { method: "POST", body: { email: email.trim(), password } });
+      const res = await api<{ state: ClientState }>(signup ? "/api/auth/signup" : "/api/auth/login", {
+        method: "POST",
+        body: signup ? { email: email.trim(), password, acceptedTerms: true } : { email: email.trim(), password },
+      });
       router.replace(res.state.user.profile.onboarded ? "/home" : "/onboarding");
     } catch (err) {
       setFormError(err instanceof ApiClientError ? err.message : t("app.genericError"));
@@ -82,6 +88,39 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           </button>
         }
       />
+      {signup && (
+        <div>
+          <label className="flex min-h-11 cursor-pointer items-start gap-3 text-body">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => {
+                setAgreed(e.target.checked);
+                setAgreeError(false);
+              }}
+              aria-invalid={agreeError}
+              aria-describedby={agreeError ? "agree-error" : undefined}
+              className="mt-0.5 size-5 shrink-0 accent-primary"
+            />
+            <span>
+              {t("signup.agreePrefix")}{" "}
+              <Link href="/terms" target="_blank" className="font-semibold text-primary underline underline-offset-4">
+                {t("legal.termsTitle")}
+              </Link>{" "}
+              {t("signup.agreeAnd")}{" "}
+              <Link href="/privacy" target="_blank" className="font-semibold text-primary underline underline-offset-4">
+                {t("legal.privacyTitle")}
+              </Link>
+              .
+            </span>
+          </label>
+          {agreeError && (
+            <p id="agree-error" role="alert" className="mt-1 text-body font-medium text-negative">
+              {t("signup.errAgree")}
+            </p>
+          )}
+        </div>
+      )}
       {formError && (
         <p role="alert" className="rounded-xl bg-negative/10 p-3 text-body font-medium text-negative">
           {formError}

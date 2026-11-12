@@ -16,7 +16,12 @@ interface AccountRecord {
   email: string;
   passwordHash: string;
   createdAt: string;
+  /** When they confirmed they're 18+ and agreed to the Terms and Privacy Policy. */
+  termsAcceptedAt?: string;
+  termsVersion?: string;
 }
+
+export const TERMS_VERSION = "2026-11-11";
 
 export interface UserRecord {
   id: string;
@@ -37,7 +42,8 @@ export function findAccount(email: string) {
 /** Returns null if the email is already registered. */
 export async function createAccount(email: string, passwordHash: string): Promise<UserRecord | null> {
   const userId = randomUUID();
-  const account: AccountRecord = { userId, email: normalizeEmail(email), passwordHash, createdAt: new Date().toISOString() };
+  const now = new Date().toISOString();
+  const account: AccountRecord = { userId, email: normalizeEmail(email), passwordHash, createdAt: now, termsAcceptedAt: now, termsVersion: TERMS_VERSION };
   if (!(await setJsonIfAbsent(accountKey(email), account))) return null;
   const record: UserRecord = { id: userId, email: account.email, handle: null, state: newUserState(userId) };
   await setJson(userKey(userId), record);
