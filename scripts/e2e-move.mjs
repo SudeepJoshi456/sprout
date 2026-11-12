@@ -73,7 +73,8 @@ await step("partial @username doesn't reveal members", async () => {
 await step("unknown wallet address shows a clear error", async () => {
   await page.getByRole("searchbox", { name: "Who are you paying?" }).fill("");
   await main().getByRole("button", { name: "Advanced options" }).click();
-  await main().getByLabel("Wallet address").fill("https://ilp.interledger-test.dev/notfound-person");
+  // Just the wallet name: the ilp.interledger-test.dev/ prefix is filled in.
+  await main().getByLabel("Wallet address").fill("notfound-person");
   await main().getByRole("button", { name: "Next", exact: true }).click();
   await page.getByText(/couldn't find a wallet/).waitFor();
 });

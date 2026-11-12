@@ -9,6 +9,8 @@ interface FieldProps extends ComponentProps<"input"> {
   hint?: ReactNode;
   error?: string | null;
   trailing?: ReactNode;
+  /** Fixed text or icon before the input, e.g. a URL prefix. */
+  leading?: ReactNode;
   labelHidden?: boolean;
 }
 
@@ -17,7 +19,7 @@ interface FieldProps extends ComponentProps<"input"> {
  * and the user's input is never cleared on error.
  */
 export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
-  { label, hint, error, trailing, labelHidden, className, id, ...props },
+  { label, hint, error, trailing, leading, labelHidden, className, id, ...props },
   ref,
 ) {
   const autoId = useId();
@@ -36,6 +38,7 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
           error ? "border-negative" : "border-input",
         )}
       >
+        {leading}
         <input
           ref={ref}
           id={inputId}

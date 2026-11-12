@@ -349,6 +349,7 @@ export const en = {
     request: "Request",
     modeTabs: "Choose what to do",
     worksWith: "Works with any Open Payments-enabled bank or wallet.",
+    recipientHint: "Type their wallet name, the part after the last slash. Or paste a full address from any Open Payments wallet.",
     sendFrom: "Send from",
     connectToSend: "Connect your wallet to send money",
     sproutMember: "On Sprout",

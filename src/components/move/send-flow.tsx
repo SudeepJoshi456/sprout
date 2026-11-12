@@ -23,7 +23,7 @@ import { cn, formatDate, formatForeign, formatMoney } from "@/lib/format";
 import type { PaymentQuote, PaymentStep, Transfer } from "@/lib/types";
 import type { SendResponse } from "@/lib/api-types";
 import { t } from "@/i18n";
-import { toWalletUrl } from "@/lib/wallet-address";
+import { isFullAddress, toWalletUrl, walletNameFrom, WALLET_HOST } from "@/lib/wallet-address";
 
 interface Recipient {
   wallet: string;
@@ -483,7 +483,7 @@ function RecipientStep({ onPick }: { onPick: (r: Recipient) => void }) {
   const paste = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      setAddress(text.trim());
+      setAddress(walletNameFrom(text));
       setError(null);
     } catch {
       /* clipboard permission denied: the field still works */
@@ -617,22 +617,29 @@ function RecipientStep({ onPick }: { onPick: (r: Recipient) => void }) {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                void lookup(address);
+                void lookup(toWalletUrl(address));
               }}
               noValidate
             >
               <Field
                 label={t("move.recipientLabel")}
-                placeholder={t("move.recipientPlaceholder")}
-                hint={t("move.worksWith")}
-                type="url"
+                placeholder={isFullAddress(address) ? t("move.recipientPlaceholder") : "wallet-name"}
+                hint={t("move.recipientHint")}
+                type="text"
                 inputMode="url"
                 autoComplete="off"
                 autoCapitalize="none"
                 spellCheck={false}
                 value={address}
+                leading={
+                  isFullAddress(address) ? undefined : (
+                    <span className="shrink-0 select-none pr-0.5 text-body text-muted-foreground" aria-hidden>
+                      {WALLET_HOST}/
+                    </span>
+                  )
+                }
                 onChange={(e) => {
-                  setAddress(e.target.value);
+                  setAddress(walletNameFrom(e.target.value));
                   setError(null);
                 }}
                 error={looksLikeAddress ? null : error}
