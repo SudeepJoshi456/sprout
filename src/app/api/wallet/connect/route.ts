@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { OpenPaymentsClientError } from "@interledger/open-payments";
 import { config, modeStatus } from "@/lib/server/config";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 import { normalizeWalletAddress } from "@/lib/server/payments";
-import { revokeGrant, startWalletConnect } from "@/lib/server/payments/interledger";
+import { KeySetupError, revokeGrant, startWalletConnect } from "@/lib/server/payments/interledger";
 import { PaymentUserError } from "@/lib/server/payments/types";
 import { getLinkedWallet, newConnectState, removeLinkedWallet, savePendingConnect } from "@/lib/server/wallet-link";
 
@@ -42,6 +43,10 @@ export async function POST(req: Request) {
       } catch (err) {
         if (err instanceof PaymentUserError) throw new ApiError(422, err.code, err.message);
         console.error("[wallet] connect failed", err);
+        // A bad key or key ID makes the wallet's auth server reject Sprout's signed request (401).
+        if (err instanceof KeySetupError || (err instanceof OpenPaymentsClientError && err.status === 401)) {
+          throw new ApiError(500, "server_key", "Sprout's own wallet key isn't set up correctly on this server, so no wallet can connect yet. Your address is fine.");
+        }
         throw new ApiError(502, "wallet_unreachable", "We couldn't reach that wallet's server. Check the address and try again.");
       }
     },

@@ -27,16 +27,38 @@ import { hostOf, PaymentUserError, StepRecorder, type OutgoingGrant, type Paymen
 
 let clientPromise: Promise<AuthenticatedClient> | null = null;
 
+/** Sprout's own key is missing or unreadable: a server setup problem, not the person's wallet. */
+export class KeySetupError extends Error {}
+
+/**
+ * Rebuilds a PEM however it was pasted into a hosting dashboard: real line
+ * breaks, literal "\n", line breaks flattened to spaces, wrapped in quotes,
+ * or the base64 blob of the whole file.
+ */
+function normalizePem(value: string): string {
+  let raw = value.trim().replace(/^["']|["']$/g, "").replace(/\\n/g, "\n").trim();
+  if (!raw.includes("BEGIN")) raw = Buffer.from(raw, "base64").toString("utf8").trim();
+  const m = raw.match(/-----BEGIN ([A-Z ]+)-----([\s\S]*?)-----END \1-----/);
+  if (!m) return raw;
+  const body = m[2].replace(/\s+/g, "");
+  return `-----BEGIN ${m[1]}-----\n${body.match(/.{1,64}/g)?.join("\n") ?? ""}\n-----END ${m[1]}-----\n`;
+}
+
 function loadPrivateKey(): KeyObject {
-  let pem: string | undefined;
-  if (config.op.privateKeyPath) pem = readFileSync(config.op.privateKeyPath, "utf8");
-  else if (config.op.privateKey) {
-    const raw = config.op.privateKey.trim();
-    // Accept a PEM with literal "\n", or the base64 blob the test wallet downloads.
-    pem = raw.includes("BEGIN") ? raw.replace(/\\n/g, "\n") : Buffer.from(raw, "base64").toString("utf8");
+  // Prefer the pasted key (Vercel); a key file path only works where the file exists (locally).
+  const sources: [string, () => string][] = [];
+  if (config.op.privateKey) sources.push(["OP_PRIVATE_KEY", () => config.op.privateKey!]);
+  if (config.op.privateKeyPath) sources.push(["OP_PRIVATE_KEY_PATH", () => readFileSync(config.op.privateKeyPath!, "utf8")]);
+  if (!sources.length) throw new KeySetupError("OP_PRIVATE_KEY or OP_PRIVATE_KEY_PATH is not set");
+  const problems: string[] = [];
+  for (const [name, read] of sources) {
+    try {
+      return createPrivateKey(normalizePem(read()));
+    } catch (err) {
+      problems.push(`${name}: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
-  if (!pem) throw new Error("OP_PRIVATE_KEY or OP_PRIVATE_KEY_PATH is not set");
-  return createPrivateKey(pem);
+  throw new KeySetupError(`Sprout's private key could not be loaded (${problems.join("; ")})`);
 }
 
 export function interledgerConfigured() {
