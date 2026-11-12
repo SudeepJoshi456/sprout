@@ -73,6 +73,10 @@ async function client() {
     privateKey: loadPrivateKey(),
     logLevel: "warn",
     requestTimeoutMs: 8000,
+    // Validating responses loads OpenAPI .yaml files from node_modules at runtime,
+    // which Vercel's serverless bundle doesn't include (ENOENT). The wallet's own
+    // servers still validate every request.
+    validateResponses: false,
   }).catch((err) => {
     clientPromise = null;
     throw err;
