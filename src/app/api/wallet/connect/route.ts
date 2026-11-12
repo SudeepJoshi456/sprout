@@ -13,6 +13,13 @@ const schema = z.object({
   returnTo: z.enum(["/profile", "/onboarding", "/move", "/home"]).default("/profile"),
 });
 
+/** A short reason to show people, with anything token-like hidden. */
+function safeReason(err: unknown) {
+  const e = err as { name?: string; message?: string; cause?: { code?: string; message?: string } } | null;
+  const text = [e?.name, e?.message, e?.cause?.code ?? e?.cause?.message].filter(Boolean).join(": ") || String(err);
+  return text.replace(/[A-Za-z0-9+/=_-]{24,}/g, "…").slice(0, 160);
+}
+
 /** The public origin, for the wallet to send people back to. */
 function appOrigin(req: Request) {
   if (config.appUrl) return config.appUrl;
@@ -57,7 +64,7 @@ export async function POST(req: Request) {
         if (err instanceof OpenPaymentsClientError && err.status) {
           throw new ApiError(502, "wallet_refused", `The wallet refused the request (${err.status}${err.description ? `: ${err.description}` : ""}).`);
         }
-        throw new ApiError(502, "wallet_unreachable", "We couldn't reach that wallet's server. Check the address and try again.");
+        throw new ApiError(502, "wallet_unreachable", `We couldn't reach that wallet's server. Check the address and try again. (Reason: ${safeReason(err)})`);
       }
     },
     { mutates: false },
