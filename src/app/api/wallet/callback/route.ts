@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/server/http";
 import { finishWalletConnect } from "@/lib/server/payments/interledger";
 import { saveUser, setWalletOwner } from "@/lib/server/users";
 import { saveLinkedWallet, takePendingConnect } from "@/lib/server/wallet-link";
+import { isAdmin, saveTreasuryLink, treasuryWallet } from "@/lib/server/invest";
 
 /**
  * GET /api/wallet/callback: the wallet sends people here after they approve
@@ -30,6 +31,11 @@ export async function GET(req: Request) {
 
   try {
     const grant = await finishWalletConnect(pending, ref, hash);
+    if (pending.purpose === "treasury") {
+      if (!isAdmin(record.email) || pending.wallet !== treasuryWallet()) return back(pending.returnTo, "failed");
+      await saveTreasuryLink({ ...grant, wallet: pending.wallet, assetCode: pending.assetCode, assetScale: pending.assetScale, capMinor: pending.capMinor, linkedAt: new Date().toISOString() });
+      return back(pending.returnTo, "connected");
+    }
     await saveLinkedWallet(record.id, {
       ...grant,
       wallet: pending.wallet,

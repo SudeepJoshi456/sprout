@@ -13,7 +13,7 @@ import { QuoteRow } from "@/components/grow/practice";
 import { BRAND_MAP, BRANDS, MIN_BRANDS, SP500_FUND } from "@/data/brands";
 import { api, ApiClientError } from "@/lib/client/api";
 import { useAppState, useResource } from "@/lib/client/hooks";
-import { cn, formatPercent, formatPrice } from "@/lib/format";
+import { cn, formatMoney, formatPercent, formatPrice, formatShares } from "@/lib/format";
 import type { QuotesResponse } from "@/lib/api-types";
 import type { Quote } from "@/lib/types";
 import { t } from "@/i18n";
@@ -47,6 +47,7 @@ export function YourBrands() {
   const others = BRANDS.filter((b) => !mine.includes(b.symbol)).map((b) => b.symbol);
   return (
     <div className="space-y-5">
+      <OwnedCard />
       <section aria-labelledby="yb-title">
         <div className="mb-2 flex items-center justify-between px-1">
           <h2 id="yb-title" className="text-body font-semibold">
@@ -133,6 +134,47 @@ function EditBrandsSheet({ open, onOpenChange, initial }: { open: boolean; onOpe
     >
       <BrandPicker selected={picked} onChange={setPicked} label={t("brands.editTitle")} />
     </Sheet>
+  );
+}
+
+/** In wallet mode: what you've bought with your own wallet, at today's prices. */
+function OwnedCard() {
+  const { user, modes } = useAppState();
+  const holdings = (user.owned?.holdings ?? []).filter((h) => h.shares > 0);
+  const { bySymbol } = useBrandQuotes(holdings.map((h) => h.symbol));
+  if (modes.invest !== "wallet") return null;
+  const total = holdings.reduce((sum, h) => sum + Math.round(h.shares * (bySymbol[h.symbol]?.price ?? 0) * 100), 0);
+  return (
+    <section aria-labelledby="owned-title" className="rounded-2xl border border-border/70 bg-card p-4 shadow-card">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 id="owned-title" className="text-body font-semibold">
+          {t("invest.owned")}
+        </h2>
+        {holdings.length > 0 && <span className="tnum font-display text-title font-semibold">{formatMoney(total)}</span>}
+      </div>
+      {holdings.length === 0 ? (
+        <p className="mt-1 text-body text-muted-foreground">{t("invest.ownedEmpty")}</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-border">
+          {holdings.map((h) => {
+            const brand = BRAND_MAP[h.symbol];
+            const value = Math.round(h.shares * (bySymbol[h.symbol]?.price ?? 0) * 100);
+            return (
+              <li key={h.symbol}>
+                <Link href={`/grow/${h.symbol}`} className="flex min-h-14 items-center gap-3 py-2">
+                  {brand ? <BrandMark brand={brand} size="sm" /> : <span className="w-9 text-caption font-bold">{h.symbol}</span>}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-body font-semibold">{brand?.name ?? h.symbol}</span>
+                    <span className="block text-caption text-muted-foreground">{t("grow.shares", { shares: formatShares(h.shares) })}</span>
+                  </span>
+                  <span className="tnum text-body font-semibold">{bySymbol[h.symbol] ? formatMoney(value) : "…"}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 

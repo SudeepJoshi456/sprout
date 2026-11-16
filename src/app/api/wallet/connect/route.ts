@@ -6,11 +6,14 @@ import { normalizeWalletAddress } from "@/lib/server/payments";
 import { KeySetupError, revokeGrant, startWalletConnect } from "@/lib/server/payments/interledger";
 import { PaymentUserError } from "@/lib/server/payments/types";
 import { getLinkedWallet, newConnectState, removeLinkedWallet, savePendingConnect } from "@/lib/server/wallet-link";
+import { isAdmin, treasuryWallet } from "@/lib/server/invest";
 
 const schema = z.object({
   walletAddress: z.string().trim().min(1).max(300),
   capCents: z.number().int().min(100).max(500_000).default(50_000),
-  returnTo: z.enum(["/profile", "/onboarding", "/move", "/home"]).default("/profile"),
+  returnTo: z.enum(["/profile", "/onboarding", "/move", "/home", "/grow"]).default("/profile"),
+  /** Admins only: connect Sprout's treasury wallet so it can pay out sells. */
+  purpose: z.literal("treasury").optional(),
 });
 
 /** A short reason to show people, with anything token-like hidden. */
@@ -36,18 +39,25 @@ function appOrigin(req: Request) {
 export async function POST(req: Request) {
   return withSession(
     req,
-    async ({ userId }) => {
+    async ({ userId, record }) => {
       if (modeStatus().payments !== "interledger") {
         throw new ApiError(409, "not_live", "Real wallets aren't set up on this server yet.");
       }
       const body = await parseBody(req, schema);
+      if (body.purpose === "treasury") {
+        if (!isAdmin(record.email)) throw new ApiError(403, "forbidden", "Only Sprout admins can connect the treasury wallet.");
+        if (normalizeWalletAddress(body.walletAddress) !== treasuryWallet()) {
+          throw new ApiError(400, "invalid_address", "That isn't the treasury wallet set in TREASURY_WALLET.");
+        }
+      }
       const wallet = normalizeWalletAddress(body.walletAddress);
+      const returnTo = body.purpose === "treasury" ? "/admin/treasury" : body.returnTo;
       const state = newConnectState();
       let step = "start";
       try {
         const { redirect, pending } = await startWalletConnect(wallet, body.capCents, `${appOrigin(req)}/api/wallet/callback?state=${state}`);
         step = "save";
-        await savePendingConnect(state, { ...pending, userId, returnTo: body.returnTo });
+        await savePendingConnect(state, { ...pending, userId, returnTo, purpose: body.purpose });
         return { redirect };
       } catch (err) {
         if (step === "save") {

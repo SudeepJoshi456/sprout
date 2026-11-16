@@ -16,6 +16,8 @@ import { Term } from "@/components/ui/term";
 import { Badge } from "@/components/ui/badge";
 import { PracticeBanner } from "@/components/grow/practice";
 import { TradeSheet } from "@/components/grow/trade-sheet";
+import { WalletTradeSheet } from "@/components/grow/wallet-trade-sheet";
+import { WalletBanner } from "@/components/grow/practice";
 import { api } from "@/lib/client/api";
 import { useAppState, useResource } from "@/lib/client/hooks";
 import { cn, formatDate, formatDateTime, formatPrice, formatShares, formatTime } from "@/lib/format";
@@ -51,7 +53,8 @@ function Asset() {
   const symbol = raw.toUpperCase();
   const params = useSearchParams();
   const router = useRouter();
-  const { userId } = useAppState();
+  const { userId, user, modes } = useAppState();
+  const walletMode = modes.invest === "wallet";
   const [range, setRange] = useState<ChartRange>("1M");
   const history = useResource<HistoryResponse>(`/api/market/history?symbol=${symbol}&range=${range}`);
   const about = useResource<{ about: string; source: "ai" | "prewritten" }>(`/api/market/about?symbol=${symbol}`);
@@ -66,7 +69,17 @@ function Asset() {
   const brand = BRAND_MAP[symbol];
   const quote = history.data?.quote;
   const view = portfolio.data?.portfolio.view;
-  const holding = view?.holdings.find((h) => h.symbol === symbol);
+  const practiceHolding = view?.holdings.find((h) => h.symbol === symbol);
+  const owned = user.owned?.holdings.find((h) => h.symbol === symbol && h.shares > 0);
+  const ownedView =
+    owned && quote
+      ? (() => {
+          const valueCents = Math.round(owned.shares * quote.price * 100);
+          const gainCents = valueCents - owned.costBasisCents;
+          return { shares: owned.shares, valueCents, gainCents, gainPct: owned.costBasisCents > 0 ? (gainCents / owned.costBasisCents) * 100 : 0 };
+        })()
+      : undefined;
+  const holding = walletMode ? ownedView : practiceHolding;
   const spot = tourStep !== null ? TOUR[tourStep].id : null;
 
   const endTour = async (completed: boolean) => {
@@ -104,7 +117,7 @@ function Asset() {
     <Screen
       title={info?.name ?? symbol}
       back="/grow"
-      banner={<PracticeBanner />}
+      banner={walletMode ? <WalletBanner /> : <PracticeBanner />}
       actions={
         tourStep === null && (
           <button
@@ -254,7 +267,21 @@ function Asset() {
         <p className="text-center text-caption text-muted-foreground">{t("grow.noAdvice")}</p>
       </div>
 
-      {quote && view && (
+      {quote && walletMode && (
+        <WalletTradeSheet
+          key={`w-${side}`}
+          open={tradeOpen}
+          onOpenChange={(o) => {
+            setTradeOpen(o);
+            if (!o && tradeParam) router.replace(`/grow/${symbol}`, { scroll: false });
+          }}
+          quote={quote}
+          positionCents={ownedView?.valueCents ?? 0}
+          initialSide={side}
+          chips={brand ? [5, 10, 25] : [10, 25, 50]}
+        />
+      )}
+      {quote && view && !walletMode && (
         <TradeSheet
           key={side}
           open={tradeOpen}

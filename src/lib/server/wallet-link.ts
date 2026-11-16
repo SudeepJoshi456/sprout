@@ -51,6 +51,8 @@ export function grantStoreFor(userId: string, link: LinkedWallet): GrantStore {
 export interface PendingConnectRecord extends PendingConnect {
   userId: string;
   returnTo: string;
+  /** "treasury": an admin is connecting Sprout's own investing wallet, not their personal one. */
+  purpose?: "treasury";
 }
 
 export function newConnectState() {

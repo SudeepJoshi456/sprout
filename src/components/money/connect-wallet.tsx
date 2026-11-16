@@ -13,7 +13,7 @@ import { isFullAddress, toWalletUrl, walletNameFrom, WALLET_HOST } from "@/lib/w
 const CAPS = [5_000, 20_000, 50_000];
 const LAST_WALLET_KEY = "sprout:last-wallet";
 
-export type WalletReturn = "/profile" | "/onboarding" | "/move" | "/home";
+export type WalletReturn = "/profile" | "/onboarding" | "/move" | "/home" | "/grow";
 
 /** Shows how the wallet approval went when the wallet sends the person back (?wallet=…). Wrap in Suspense. */
 export function WalletReturnNotice() {

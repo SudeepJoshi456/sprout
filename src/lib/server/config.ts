@@ -44,6 +44,14 @@ export const config = {
     cacheSeconds: Math.max(60, Number(process.env.MARKET_CACHE_SECONDS || 60)),
   },
 
+  /**
+   * Sprout's own wallet for investing: buys are paid into it and sells are paid
+   * out of it, e.g. https://ilp.interledger-test.dev/sprout-treasury.
+   */
+  treasuryWallet: process.env.TREASURY_WALLET?.trim() || null,
+  /** Emails (comma-separated) allowed to connect the treasury wallet. */
+  adminEmails: (process.env.ADMIN_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean),
+
   /** Sprout's own Open Payments client identity. People connect their own wallets in the app. */
   op: {
     clientWalletAddress: process.env.OP_CLIENT_WALLET_ADDRESS,
@@ -61,5 +69,6 @@ if (process.env.VERCEL && config.sessionSecret === DEV_SECRET) {
 export function modeStatus(): ModeStatus {
   const op = config.op;
   const opReady = Boolean(op.clientWalletAddress && op.keyId && (op.privateKey || op.privateKeyPath));
-  return { payments: config.paymentsMode === "interledger" && opReady ? "interledger" : "mock", ai: config.aiMode, market: config.marketMode };
+  const payments = config.paymentsMode === "interledger" && opReady ? "interledger" : "mock";
+  return { payments, invest: payments === "interledger" && config.treasuryWallet ? "wallet" : "practice", ai: config.aiMode, market: config.marketMode };
 }

@@ -36,6 +36,16 @@ export function PracticeBanner() {
   );
 }
 
+/** Shown instead of the practice strip when buys and sells are paid from the person's own wallet. */
+export function WalletBanner() {
+  return (
+    <p className="flex min-h-10 w-full items-center justify-center gap-1.5 bg-practice-soft px-4 text-caption font-semibold text-practice">
+      <FlaskConical className="size-3.5" aria-hidden />
+      {t("invest.banner")}
+    </p>
+  );
+}
+
 export function QuoteRow({ quote, className }: { quote: Quote; className?: string }) {
   const up = quote.changePct > 0;
   const down = quote.changePct < 0;

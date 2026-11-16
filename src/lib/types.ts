@@ -148,6 +148,17 @@ export interface Portfolio {
   trades: Trade[];
 }
 
+export interface OwnedTrade extends Trade {
+  /** The Interledger payment that paid for (buy) or paid out (sell) this trade. */
+  paymentId?: string;
+  feeCents: number;
+}
+
+export interface Owned {
+  holdings: Holding[];
+  trades: OwnedTrade[];
+}
+
 export interface LessonCompletion {
   completedAt: string;
   score: number;
@@ -184,6 +195,8 @@ export interface UserState {
   requests: PaymentRequest[];
   incoming?: IncomingSync;
   portfolio: Portfolio;
+  /** Shares bought with the person's own wallet over Interledger (test money). No cash: money lives in the wallet. */
+  owned?: Owned;
   learning: Learning;
   coach: CoachMessage[];
   demo: DemoFlags;
@@ -248,6 +261,8 @@ export interface ModeStatus {
   payments: PaymentsMode;
   /** Live only when the user's wallet is the real one we hold keys for. */
   receiving?: PaymentsMode;
+  /** "wallet": buys and sells are real Interledger payments with Sprout's wallet. "practice": play money. */
+  invest: "wallet" | "practice";
   ai: AiMode;
   market: MarketMode;
 }
