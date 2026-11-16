@@ -12,20 +12,34 @@ export interface CourseUnit {
   lessonIds: string[];
 }
 
-export const COURSE_TITLE = "Starting from Zero";
-export const COURSE_SUBTITLE = "Five short units from your first US bank account to your first practice investment.";
+export const COURSE_TITLE = "Invest in what you know";
+export const COURSE_SUBTITLE = "Short units that start with brands you love and build up to smart investing habits.";
 
 export const COURSE_UNITS: CourseUnit[] = [
   {
-    id: "land",
-    title: "Land on your feet",
-    summary: "Banking, ID numbers, and staying safe in your first months.",
-    icon: "building",
-    lessonIds: ["us-banking-basics", "ssn-vs-itin", "money-scams", "student-taxes"],
+    id: "invest",
+    title: "Start with brands you love",
+    summary: "What owning a company means, and how to judge one.",
+    icon: "trending-up",
+    lessonIds: ["brand-vs-stock", "what-is-a-stock", "one-fund-vs-one-brand", "index-funds"],
+  },
+  {
+    id: "habits",
+    title: "Smart investing habits",
+    summary: "Spreading risk, fees, time, and staying calm in dips.",
+    icon: "sprout",
+    lessonIds: ["diversification", "investing-fees", "compound-growth", "market-dips"],
+  },
+  {
+    id: "moves",
+    title: "How money moves",
+    summary: "The open network behind Sprout's payments.",
+    icon: "network",
+    lessonIds: ["how-interledger-works"],
   },
   {
     id: "credit",
-    title: "Build US credit",
+    title: "Build credit",
     summary: "Start from no score and build one safely.",
     icon: "gauge",
     lessonIds: ["credit-new", "first-credit-card", "credit-reports"],
@@ -33,22 +47,15 @@ export const COURSE_UNITS: CourseUnit[] = [
   {
     id: "everyday",
     title: "Everyday money",
-    summary: "Budgets, a safety cushion, and sending money home.",
+    summary: "A safety cushion and a simple plan for each semester.",
     icon: "wallet",
-    lessonIds: ["semester-budget", "emergency-fund", "send-home", "remittance-rights"],
+    lessonIds: ["emergency-fund", "semester-budget"],
   },
   {
-    id: "moves",
-    title: "How money moves",
-    summary: "The open network behind Sprout's transfers.",
-    icon: "network",
-    lessonIds: ["how-interledger-works"],
-  },
-  {
-    id: "invest",
-    title: "Start investing (practice)",
-    summary: "Stocks, funds, fees, and patience, with play money.",
-    icon: "trending-up",
-    lessonIds: ["what-is-a-stock", "index-funds", "diversification", "investing-fees", "compound-growth", "market-dips"],
+    id: "land",
+    title: "New to the US (optional)",
+    summary: "Banking, ID numbers, taxes, scams, and sending money home.",
+    icon: "building",
+    lessonIds: ["us-banking-basics", "ssn-vs-itin", "money-scams", "student-taxes", "send-home", "remittance-rights"],
   },
 ];

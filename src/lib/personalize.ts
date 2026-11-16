@@ -23,6 +23,12 @@ export function rankLessons(state: UserState, prices: PriceMap): LessonSummary[]
     if (!s.reason || by >= 3) s.reason = reason;
   };
 
+  // Sprout's focus: learning to invest through the brands people picked.
+  if (p.brands?.length) {
+    bump("brand-vs-stock", 6, "Because you picked brands you love");
+    bump("what-is-a-stock", 4, "Because you picked brands you love");
+    bump("one-fund-vs-one-brand", 3, "Your brands are inside one index fund");
+  }
   if (p.reasons.includes("new_to_us")) {
     bump("credit-new", 4, "Because you're new to the US");
     bump("ssn-vs-itin", 3, "Because you're new to the US");

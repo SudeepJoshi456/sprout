@@ -21,6 +21,42 @@ type Prewritten = Omit<LessonContent, "source">;
 
 export const LESSONS: Prewritten[] = [
   {
+    id: "brand-vs-stock",
+    title: "Liking a brand vs. owning the stock",
+    summary: "Why a great product doesn't automatically make a great investment.",
+    minutes: 2,
+    cards: [
+      { title: "You already know brands", body: "You know which sneakers, apps and coffee you love. That's a real head start: you understand what these companies sell and who buys it.", icon: "lightbulb", tone: "green" },
+      { title: "A stock is the business", body: "Owning a share means owning a slice of the whole company: its profits, its debts and its mistakes. Not just the product you like.", icon: "pie-chart", tone: "sky" },
+      { title: "Popular can be priced in", body: "When everyone loves a company, its stock price often already reflects that. A great brand can still be an expensive stock.", icon: "scale", tone: "yellow" },
+      { title: "Three questions first", body: "Is it making money? Is it growing? What could go wrong? Sprout's brand pages walk you through all three for every brand.", icon: "list-checks", tone: "peach" },
+      { title: "Keep any one company small", body: "Even great companies have bad years. Many investors keep a single stock to a small part of their money.", icon: "shield", tone: "plum" },
+    ],
+    quiz: [
+      { question: "You love a brand. What should you check before owning its stock?", options: ["Nothing, liking it is enough", "Profit, growth and what could go wrong", "Only today's price"], answerIndex: 1, explanation: "A good product is a start, but the business behind it matters most." },
+      { question: "A stock can be a poor investment even if the brand is great because…", options: ["Its price may already reflect how popular it is", "Brands never matter", "Stocks never change price"], answerIndex: 0, explanation: "Popularity is often already in the price." },
+    ],
+    action: { label: "Open one of your brands and run the check", href: "/grow" },
+  },
+  {
+    id: "one-fund-vs-one-brand",
+    title: "Why one index fund beats one favorite brand",
+    summary: "Your favorite brands are probably already inside one fund.",
+    minutes: 2,
+    cards: [
+      { title: "Your brands, all at once", body: "Apple, Nike, Starbucks and Netflix are all in the S&P 500. One S&P 500 fund owns a small slice of each, plus about 500 other big companies.", icon: "layers", tone: "green" },
+      { title: "One bad year, smaller hit", body: "If one company stumbles, it's a tiny part of the fund. With one stock, that company's bad year is your whole bad year.", icon: "shield-check", tone: "sky" },
+      { title: "No picking required", body: "You don't have to guess which brand wins. The fund owns the winners and the laggards, so you get roughly the market's result.", icon: "target", tone: "yellow" },
+      { title: "Still not risk-free", body: "Index funds rise and fall with the whole market and can drop a lot in a bad year. They work best for money you won't need for years.", icon: "trending-down", tone: "peach" },
+      { title: "Brands to learn, funds to build", body: "Use brands you love to learn how companies work. Many people build most of their savings in broad funds.", icon: "sprout", tone: "plum" },
+    ],
+    quiz: [
+      { question: "Why might one index fund be less risky than one favorite stock?", options: ["It holds hundreds of companies", "It can never lose money", "It only holds your favorite brand"], answerIndex: 0, explanation: "Spreading money across many companies softens any one company's bad year." },
+      { question: "Can an S&P 500 fund lose value?", options: ["No", "Yes, when the whole market falls", "Only if one company closes"], answerIndex: 1, explanation: "Diversification lowers risk but doesn't remove it." },
+    ],
+    action: { label: "See which of your brands are in VOO", href: "/grow/VOO" },
+  },
+  {
     id: "credit-new",
     title: "How US credit scores work when you're new",
     summary: "Why you start with no score, and the safest ways to build one.",
@@ -84,14 +120,14 @@ export const LESSONS: Prewritten[] = [
       { title: "Checking is for everyday money", body: "A checking account holds money you spend: rent, groceries, card payments. Most paychecks land here.", icon: "wallet", tone: "green" },
       { title: "Routing and account numbers", body: "A routing number identifies your bank (9 digits). Your account number identifies you. Employers need both to pay you by direct deposit.", icon: "hash", tone: "sky" },
       { title: "Debit vs. credit cards", body: "A debit card spends your own money right away. A credit card borrows money you repay later, and builds credit history if you pay on time.", icon: "credit-card", tone: "yellow" },
-      { title: "Watch for overdraft fees", body: "If you spend more than you have, some banks charge around $35. Sprout shows \"safe to spend\" so you can see your real room first.", icon: "triangle-alert", tone: "peach" },
+      { title: "Watch for overdraft fees", body: "If you spend more than you have, some banks charge around $35. Check your balance before you pay so you know your real room first.", icon: "triangle-alert", tone: "peach" },
       { title: "Deposits are insured", body: "Money in a US bank is usually protected by FDIC insurance up to $250,000 if the bank fails. Practice money in Sprout is not real and not insured.", icon: "shield-check", tone: "plum" },
     ],
     quiz: [
       { question: "What does a routing number identify?", options: ["You", "Your bank", "Your card"], answerIndex: 1, explanation: "It's the bank's address in the US payment system." },
       { question: "A debit card spends…", options: ["Borrowed money", "Your own money", "Practice money"], answerIndex: 1, explanation: "Debit pulls directly from your account." },
     ],
-    action: { label: "See your safe-to-spend number", href: "/home" },
+    action: { label: "See your wallet activity", href: "/move" },
   },
   {
     id: "first-credit-card",
@@ -206,7 +242,7 @@ export const LESSONS: Prewritten[] = [
     cards: [
       { title: "Lumpy money", body: "Students often get money in big chunks: family transfers, scholarships, loans. It can feel like a lot in September and very little in December.", icon: "calendar", tone: "sky" },
       { title: "Divide by weeks", body: "Take what's left after bills and tuition, and divide by the weeks left in the semester. That's your weekly spending room.", icon: "divide", tone: "green" },
-      { title: "Protect bills first", body: "Set aside rent, phone, and tuition installments as soon as money lands. Sprout subtracts set-asides from \"safe to spend\" automatically.", icon: "shield", tone: "yellow" },
+      { title: "Protect bills first", body: "Set aside rent, phone, and tuition installments as soon as money lands, so you can't spend them by accident.", icon: "shield", tone: "yellow" },
       { title: "Check in weekly", body: "Look at your categories once a week. Small corrections in October beat a scramble in December.", icon: "calendar-check", tone: "peach" },
     ],
     quiz: [
@@ -381,6 +417,11 @@ export const LESSON_SOURCES: Record<string, Array<{ label: string; url: string }
   "investing-fees": [
     { label: "Investor.gov: How fees affect your portfolio", url: "https://www.investor.gov/introduction-investing/getting-started/understanding-fees" },
   ],
+  "brand-vs-stock": [{ label: "Investor.gov: Stocks", url: "https://www.investor.gov/introduction-investing/investing-basics/investment-products/stocks" }],
+  "one-fund-vs-one-brand": [
+    { label: "Investor.gov: Index funds", url: "https://www.investor.gov/introduction-investing/investing-basics/investment-products/mutual-funds-and-exchange-traded-1" },
+    { label: "Investor.gov: Diversification", url: "https://www.investor.gov/additional-resources/general-resources/publications-research/info-sheets/beginners-guide-asset" },
+  ],
   "how-interledger-works": [
     { label: "Interledger Foundation", url: "https://interledger.org/" },
     { label: "Open Payments documentation", url: "https://openpayments.dev/" },
@@ -406,9 +447,30 @@ const TRACKS: Record<string, LessonSummary["track"]> = {
   "credit-reports": "credit",
   "investing-fees": "investing",
   "how-interledger-works": "money",
+  "brand-vs-stock": "investing",
+  "one-fund-vs-one-brand": "investing",
 };
 
-export const LESSON_META: LessonMeta[] = LESSONS.map((l) => ({
+/** Learn shows investing first (Sprout's focus); the newcomer lessons come last as an optional track. */
+const ORDER = [
+  "brand-vs-stock",
+  "what-is-a-stock",
+  "one-fund-vs-one-brand",
+  "index-funds",
+  "diversification",
+  "investing-fees",
+  "compound-growth",
+  "market-dips",
+  "how-interledger-works",
+  "credit-new",
+  "first-credit-card",
+  "credit-reports",
+  "emergency-fund",
+  "semester-budget",
+];
+const rank = (id: string) => (ORDER.includes(id) ? ORDER.indexOf(id) : ORDER.length);
+
+export const LESSON_META: LessonMeta[] = [...LESSONS].sort((a, b) => rank(a.id) - rank(b.id)).map((l) => ({
   id: l.id,
   title: l.title,
   summary: l.summary,
@@ -422,4 +484,4 @@ export function getPrewrittenLesson(id: string): LessonContent | null {
   return l ? { ...l, source: "prewritten" } : null;
 }
 
-export const INVESTING_LESSON_IDS = ["index-funds", "diversification", "what-is-a-stock", "market-dips", "compound-growth"];
+export const INVESTING_LESSON_IDS = ["brand-vs-stock", "one-fund-vs-one-brand", "index-funds", "diversification", "what-is-a-stock", "market-dips", "compound-growth"];
