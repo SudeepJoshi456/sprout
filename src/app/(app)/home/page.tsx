@@ -12,6 +12,7 @@ import { SimulatedBadge } from "@/components/ui/badge";
 import { ConnectWallet, WalletReturnNotice } from "@/components/money/connect-wallet";
 import { WalletActivityCard } from "@/components/money/wallet-activity";
 import { BrandsRow } from "@/components/grow/your-brands";
+import { GiftsReceived } from "@/components/grow/gifts-received";
 import { ButtonLink } from "@/components/ui/button";
 import { useAppState, useResource } from "@/lib/client/hooks";
 import { formatPercent } from "@/lib/format";
@@ -39,6 +40,7 @@ export default function HomePage() {
           <WelcomeMoment name={user.profile.preferredName} />
           <WalletReturnNotice />
         </Suspense>
+        <GiftsReceived />
         <BrandsRow />
         <Overview userId={userId} />
         {modes.payments !== "interledger" ? (

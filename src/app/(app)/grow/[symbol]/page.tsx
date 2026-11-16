@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Compass, Sparkles } from "lucide-react";
+import { Compass, Gift as GiftIcon, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Screen } from "@/components/shell/screen";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { PracticeBanner } from "@/components/grow/practice";
 import { TradeSheet } from "@/components/grow/trade-sheet";
 import { WalletTradeSheet } from "@/components/grow/wallet-trade-sheet";
+import { GiftSheet } from "@/components/grow/gift-sheet";
 import { WalletBanner } from "@/components/grow/practice";
 import { api } from "@/lib/client/api";
 import { useAppState, useResource } from "@/lib/client/hooks";
@@ -63,6 +64,7 @@ function Asset() {
   const tradeParam = params.get("trade");
   const [tradeOpen, setTradeOpen] = useState(tradeParam === "buy" || tradeParam === "sell");
   const [side, setSide] = useState<"buy" | "sell">(tradeParam === "sell" ? "sell" : "buy");
+  const [giftOpen, setGiftOpen] = useState(false);
   const [tourStep, setTourStep] = useState<number | null>(params.get("tour") === "stock-page" ? 0 : null);
 
   const info = TICKER_MAP[symbol];
@@ -142,6 +144,11 @@ function Asset() {
           )}
           <Spot active={spot === "buy"}>
             <div className="flex gap-2">
+              {brand && (
+                <Button variant="outline" size="lg" className="shrink-0 px-4" onClick={() => setGiftOpen(true)} disabled={!quote} aria-label={t("gift.button")}>
+                  <GiftIcon className="size-5" aria-hidden />
+                </Button>
+              )}
               {holding && (
                 <Button variant="outline" size="lg" className="flex-1" onClick={() => openTrade("sell")} disabled={!quote}>
                   {t("grow.sell")}
@@ -267,6 +274,7 @@ function Asset() {
         <p className="text-center text-caption text-muted-foreground">{t("grow.noAdvice")}</p>
       </div>
 
+      {quote && brand && <GiftSheet open={giftOpen} onOpenChange={setGiftOpen} quote={quote} brandName={brand.name} />}
       {quote && walletMode && (
         <WalletTradeSheet
           key={`w-${side}`}

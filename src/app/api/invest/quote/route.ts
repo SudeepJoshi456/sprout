@@ -4,7 +4,7 @@ import { ApiError, parseBody, withSession } from "@/lib/server/http";
 import { getQuote } from "@/lib/server/market";
 import { createQuote } from "@/lib/server/payments";
 import { getLinkedWallet } from "@/lib/server/wallet-link";
-import { memberLabel } from "@/lib/server/users";
+import { findByHandle, memberLabel } from "@/lib/server/users";
 import { INVEST_MAX_CENTS, INVEST_MIN_CENTS, TREASURY_NAME, getTreasuryLink, newOrder, ownedHolding, treasuryWallet } from "@/lib/server/invest";
 import { formatMoney } from "@/lib/format";
 import { roundShares } from "@/lib/portfolio";
@@ -19,19 +19,38 @@ const schema = z.object({
   side: z.enum(["buy", "sell"]),
   amountCents: z.number().int().nonnegative(),
   sellAll: z.boolean().optional(),
+  /** Gift the shares to another member by @username (buys only). */
+  giftTo: z.string().trim().max(30).optional(),
 });
+
+/** Where simulated gifts are "paid" when the server has no live Interledger setup. */
+const PRACTICE_TREASURY = "https://ilp.interledger-test.dev/sprout-practice-treasury";
 
 export async function POST(req: Request) {
   return withSession(
     req,
     async ({ userId, user, record }) => {
-      if (modeStatus().invest !== "wallet") throw new ApiError(409, "invest_off", "Investing with your wallet isn't set up on this server yet.");
       const body = await parseBody(req, schema);
+      const walletMode = modeStatus().invest === "wallet";
+      // Gifts also work with simulated payments, so the feature can be tried without a treasury.
+      if (!walletMode && !body.giftTo) throw new ApiError(409, "invest_off", "Investing with your wallet isn't set up on this server yet.");
       const symbol = body.symbol.toUpperCase();
-      const treasury = treasuryWallet();
 
-      const link = await getLinkedWallet(userId);
-      if (!link || link.wallet !== user.profile.walletAddress) {
+      let recipientId = userId;
+      let recipientName = "";
+      if (body.giftTo) {
+        if (body.side !== "buy") throw new ApiError(400, "invalid_input", "Only buys can be gifts.");
+        const friend = await findByHandle(body.giftTo);
+        if (!friend) throw new ApiError(404, "not_found", `We couldn't find @${body.giftTo.replace(/^@/, "")} on Sprout. Check the username.`);
+        if (friend.id === userId) throw new ApiError(400, "self_gift", "You can't gift a stock to yourself. Buy it instead.");
+        recipientId = friend.id;
+        recipientName = memberLabel(friend);
+      }
+
+      const treasury = walletMode ? treasuryWallet() : PRACTICE_TREASURY;
+      const link = walletMode ? await getLinkedWallet(userId) : null;
+      const senderWallet = walletMode ? link?.wallet : (user.profile.walletAddress ?? "https://ilp.interledger-test.dev/sprout-practice");
+      if (!senderWallet || (walletMode && senderWallet !== user.profile.walletAddress)) {
         throw new ApiError(409, "wallet_not_connected", "Connect your wallet first. Your investments are paid from it.");
       }
       const market = await getQuote(symbol);
@@ -45,7 +64,7 @@ export async function POST(req: Request) {
         if (amountCents < INVEST_MIN_CENTS) throw new ApiError(422, "below_minimum", `The smallest buy is ${formatMoney(INVEST_MIN_CENTS)}.`);
         if (amountCents > INVEST_MAX_CENTS) throw new ApiError(422, "above_maximum", `The largest buy on the test network is ${formatMoney(INVEST_MAX_CENTS)}.`);
         shares = roundShares(amountCents / 100 / price);
-        quote = await createQuote({ senderWallet: link.wallet, receiverWallet: treasury, receiverName: TREASURY_NAME, senderName: memberLabel(record), amountCents });
+        quote = await createQuote({ senderWallet, receiverWallet: treasury, receiverName: TREASURY_NAME, senderName: memberLabel(record), amountCents });
       } else {
         const holding = ownedHolding(user, symbol);
         if (!holding) throw new ApiError(422, "exceeds_position", "You don't own any of this yet.");
@@ -57,10 +76,10 @@ export async function POST(req: Request) {
         if (!(await getTreasuryLink())) {
           throw new ApiError(503, "treasury_not_ready", "Selling isn't available yet: Sprout's wallet hasn't been approved to pay out. Please try again later.");
         }
-        quote = await createQuote({ senderWallet: treasury, receiverWallet: link.wallet, receiverName: memberLabel(record), senderName: TREASURY_NAME, amountCents });
+        quote = await createQuote({ senderWallet: treasury, receiverWallet: senderWallet, receiverName: memberLabel(record), senderName: TREASURY_NAME, amountCents });
       }
-      const order = newOrder({ quoteId: quote.quote.id, userId, symbol, side: body.side, amountCents, shares, price, recipientId: userId });
-      return { quote: quote.quote, steps: quote.steps, order };
+      const order = newOrder({ quoteId: quote.quote.id, userId, symbol, side: body.side, amountCents, shares, price, recipientId });
+      return { quote: quote.quote, steps: quote.steps, order, recipientName };
     },
     { mutates: false },
   );

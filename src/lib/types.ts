@@ -159,6 +159,21 @@ export interface Owned {
   trades: OwnedTrade[];
 }
 
+export interface Gift {
+  id: string;
+  /** "Maya Torres (@maya)". */
+  fromName: string;
+  symbol: string;
+  amountCents: number;
+  shares: number;
+  price: number;
+  message?: string;
+  at: string;
+  /** Paid over Interledger ("interledger") or simulated ("mock"). */
+  mode: PaymentsMode;
+  seen: boolean;
+}
+
 export interface LessonCompletion {
   completedAt: string;
   score: number;
@@ -197,6 +212,8 @@ export interface UserState {
   portfolio: Portfolio;
   /** Shares bought with the person's own wallet over Interledger (test money). No cash: money lives in the wallet. */
   owned?: Owned;
+  /** Stock gifts received from friends, newest first. */
+  gifts?: Gift[];
   learning: Learning;
   coach: CoachMessage[];
   demo: DemoFlags;

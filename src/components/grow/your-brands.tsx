@@ -142,7 +142,7 @@ function OwnedCard() {
   const { user, modes } = useAppState();
   const holdings = (user.owned?.holdings ?? []).filter((h) => h.shares > 0);
   const { bySymbol } = useBrandQuotes(holdings.map((h) => h.symbol));
-  if (modes.invest !== "wallet") return null;
+  if (modes.invest !== "wallet" && holdings.length === 0) return null;
   const total = holdings.reduce((sum, h) => sum + Math.round(h.shares * (bySymbol[h.symbol]?.price ?? 0) * 100), 0);
   return (
     <section aria-labelledby="owned-title" className="rounded-2xl border border-border/70 bg-card p-4 shadow-card">

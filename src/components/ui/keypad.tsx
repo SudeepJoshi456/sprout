@@ -84,7 +84,18 @@ export function Keypad({
   );
 }
 
-export function QuickChips({ amounts, onPick, format = (n: number) => formatMoney(n * 100, { trimZeroCents: true }) }: { amounts: number[]; onPick: (n: number) => void; format?: (n: number) => string }) {
+export function QuickChips({
+  amounts,
+  onPick,
+  selected,
+  format = (n: number) => formatMoney(n * 100, { trimZeroCents: true }),
+}: {
+  amounts: number[];
+  onPick: (n: number) => void;
+  /** Highlights one chip when the chips are the only way to pick an amount. */
+  selected?: number;
+  format?: (n: number) => string;
+}) {
   return (
     <div className="flex flex-wrap justify-center gap-2">
       {amounts.map((a) => (
@@ -92,7 +103,8 @@ export function QuickChips({ amounts, onPick, format = (n: number) => formatMone
           key={a}
           type="button"
           onClick={() => onPick(a)}
-          className="min-h-11 rounded-full border border-input bg-card px-4 text-body font-semibold hover:bg-muted"
+          aria-pressed={selected === undefined ? undefined : selected === a}
+          className={`min-h-11 rounded-full border px-4 text-body font-semibold ${selected === a ? "border-primary bg-accent/50" : "border-input bg-card hover:bg-muted"}`}
         >
           {format(a)}
         </button>
