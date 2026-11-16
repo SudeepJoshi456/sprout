@@ -8,8 +8,8 @@ export function BrandMark({ brand, size = "md", className }: { brand: Brand; siz
   return (
     <span
       aria-hidden
-      style={{ backgroundColor: brand.color }}
-      className={cn("flex shrink-0 items-center justify-center rounded-2xl font-display font-semibold text-white", dims, className)}
+      style={{ backgroundColor: brand.color, color: "#FFFFFF" }}
+      className={cn("flex shrink-0 items-center justify-center rounded-2xl font-display font-semibold", dims, className)}
     >
       {brand.name.charAt(0)}
     </span>

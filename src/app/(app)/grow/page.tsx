@@ -17,6 +17,7 @@ import { Term } from "@/components/ui/term";
 import { SimulatedBadge } from "@/components/ui/badge";
 import { CoachCard } from "@/components/money/coach-card";
 import { PracticeBanner, QuoteRow } from "@/components/grow/practice";
+import { YourBrands } from "@/components/grow/your-brands";
 import { useAppState, useResource } from "@/lib/client/hooks";
 import { CURATED_LISTS } from "@/data/tickers";
 import { GRADUATE_DAYS, GRADUATE_LESSONS } from "@/lib/progress";
@@ -25,7 +26,8 @@ import type { PortfolioResponse, QuotesResponse } from "@/lib/api-types";
 import type { ChartRange } from "@/lib/types";
 import { t } from "@/i18n";
 
-type Tab = "portfolio" | "explore";
+type Tab = "brands" | "portfolio" | "explore";
+const TABS: Tab[] = ["brands", "portfolio", "explore"];
 const RANGES: ChartRange[] = ["1D", "1W", "1M", "1Y"];
 
 /** Grow: practice investing with practice money (fake money for learning). */
@@ -40,10 +42,11 @@ export default function GrowPage() {
 function Grow() {
   const params = useSearchParams();
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>(params.get("tab") === "explore" ? "explore" : "portfolio");
+  const fromUrl = params.get("tab") as Tab | null;
+  const [tab, setTab] = useState<Tab>(fromUrl && TABS.includes(fromUrl) ? fromUrl : "brands");
   const change = (next: Tab) => {
     setTab(next);
-    router.replace(next === "explore" ? "/grow?tab=explore" : "/grow", { scroll: false });
+    router.replace(next === "brands" ? "/grow" : `/grow?tab=${next}`, { scroll: false });
   };
   return (
     <Screen
@@ -58,6 +61,7 @@ function Grow() {
               onChange={change}
               controls="grow"
               options={[
+                { value: "brands", label: t("brands.tab") },
                 { value: "portfolio", label: t("grow.portfolio") },
                 { value: "explore", label: t("grow.explore") },
               ]}
@@ -67,7 +71,7 @@ function Grow() {
       }
     >
       <div role="tabpanel" id={`grow-panel-${tab}`} aria-labelledby={`grow-tab-${tab}`} className="pt-1">
-        {tab === "portfolio" ? <PortfolioTab onExplore={() => change("explore")} /> : <ExploreTab />}
+        {tab === "brands" ? <YourBrands /> : tab === "portfolio" ? <PortfolioTab onExplore={() => change("brands")} /> : <ExploreTab />}
       </div>
     </Screen>
   );

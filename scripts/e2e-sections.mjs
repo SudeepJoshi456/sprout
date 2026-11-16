@@ -68,7 +68,7 @@ await step("play the Interledger lesson: cards → quiz → result with sources"
 
 // ── Grow ──
 await step("Practice Investing: fake-money explainer, total value, challenges, graduate card", async () => {
-  await page.goto(`${BASE}/grow`);
+  await page.goto(`${BASE}/grow?tab=portfolio`);
   await page.getByText("Practice money = fake money for learning").waitFor();
   await page.getByText("Practice portfolio value").waitFor();
   await page.getByText("Challenges").waitFor();
@@ -110,7 +110,7 @@ await step("deep link ?trade=buy&amount=50 → review → filled", async () => {
 
 await step("holding shows on the asset page and in the portfolio", async () => {
   await page.getByText("Your position").waitFor();
-  await page.goto(`${BASE}/grow`);
+  await page.goto(`${BASE}/grow?tab=portfolio`);
   await page.getByRole("link", { name: /Vanguard S&P 500/ }).first().waitFor();
 });
 

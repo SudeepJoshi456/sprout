@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SimulatedBadge } from "@/components/ui/badge";
 import { ConnectWallet, WalletReturnNotice } from "@/components/money/connect-wallet";
 import { WalletActivityCard } from "@/components/money/wallet-activity";
+import { BrandsRow } from "@/components/grow/your-brands";
 import { ButtonLink } from "@/components/ui/button";
 import { useAppState, useResource } from "@/lib/client/hooks";
 import { formatPercent } from "@/lib/format";
@@ -22,7 +23,7 @@ function greetingKey() {
   return h < 12 ? "home.morning" : h < 18 ? "home.afternoon" : "home.evening";
 }
 
-/** ★ Home: your money at a glance, one main action, and a short overview that links to each page. */
+/** ★ Home: your brands first, then your practice portfolio and next lesson, then your wallet. */
 export default function HomePage() {
   const { user, userId, modes, wallet } = useAppState();
   return (
@@ -38,6 +39,8 @@ export default function HomePage() {
           <WelcomeMoment name={user.profile.preferredName} />
           <WalletReturnNotice />
         </Suspense>
+        <BrandsRow />
+        <Overview userId={userId} />
         {modes.payments !== "interledger" ? (
           <OfflineCard />
         ) : wallet ? (
@@ -53,7 +56,6 @@ export default function HomePage() {
             <ConnectWallet returnTo="/home" />
           </Card>
         )}
-        <Overview userId={userId} />
       </main>
     </>
   );
