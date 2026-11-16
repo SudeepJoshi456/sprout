@@ -20,6 +20,8 @@ import { api } from "@/lib/client/api";
 import { useAppState, useResource } from "@/lib/client/hooks";
 import { cn, formatDate, formatDateTime, formatPrice, formatShares, formatTime } from "@/lib/format";
 import { TICKER_MAP } from "@/data/tickers";
+import { BRAND_MAP } from "@/data/brands";
+import { BrandSections } from "@/components/grow/brand-sections";
 import type { HistoryResponse, PortfolioResponse } from "@/lib/api-types";
 import type { ChartRange } from "@/lib/types";
 import { t, type MessageKey } from "@/i18n";
@@ -61,6 +63,7 @@ function Asset() {
   const [tourStep, setTourStep] = useState<number | null>(params.get("tour") === "stock-page" ? 0 : null);
 
   const info = TICKER_MAP[symbol];
+  const brand = BRAND_MAP[symbol];
   const quote = history.data?.quote;
   const view = portfolio.data?.portfolio.view;
   const holding = view?.holdings.find((h) => h.symbol === symbol);
@@ -227,6 +230,8 @@ function Asset() {
           </Card>
         </Spot>
 
+        {brand && <BrandSections brand={brand} company={info?.name ?? brand.name} />}
+
         {quote && (
           <Spot active={spot === "stats"} className="block">
             <Card aria-labelledby="stats-title">
@@ -262,6 +267,7 @@ function Asset() {
           positionCents={holding?.valueCents ?? 0}
           initialSide={side}
           initialAmount={tradeParam ? (params.get("amount") ?? "").replace(/[^\d.]/g, "") : ""}
+          chips={brand ? [5, 10, 25] : undefined}
         />
       )}
     </Screen>

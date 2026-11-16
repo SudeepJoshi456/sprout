@@ -28,6 +28,7 @@ export function TradeSheet({
   positionCents,
   initialSide = "buy",
   initialAmount = "",
+  chips = [10, 50, 100, 500],
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -36,6 +37,8 @@ export function TradeSheet({
   positionCents: number;
   initialSide?: Side;
   initialAmount?: string;
+  /** Quick amount buttons, in dollars. */
+  chips?: number[];
 }) {
   const [side, setSide] = useState<Side>(initialSide);
   const [amount, setAmount] = useState(initialAmount);
@@ -122,7 +125,7 @@ export function TradeSheet({
             </p>
           )}
           {side === "buy" ? (
-            <QuickChips amounts={[10, 50, 100, 500]} onPick={(n) => { setAmount(String(n)); setError(null); }} />
+            <QuickChips amounts={chips} onPick={(n) => { setAmount(String(n)); setError(null); }} />
           ) : (
             <div className="flex justify-center">
               <Button variant={sellAll ? "primary" : "outline"} aria-pressed={sellAll} onClick={() => { setSellAll((s) => !s); setError(null); }}>
