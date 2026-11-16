@@ -51,9 +51,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { CATEGORIES } from "@/data/categories";
-import { cn } from "@/lib/format";
-import type { CardTone, CategoryId } from "@/lib/types";
+import type { CardTone } from "@/lib/types";
 
 /** Static map (tree-shakeable) from icon names used in data files to components. */
 const ICONS: Record<string, LucideIcon> = {
@@ -113,15 +111,6 @@ const ICONS: Record<string, LucideIcon> = {
 export function Icon({ name, className }: { name: string; className?: string }) {
   const C = ICONS[name] ?? Lightbulb;
   return <C className={className} aria-hidden />;
-}
-
-export function CategoryIcon({ category, className }: { category: CategoryId; className?: string }) {
-  const meta = CATEGORIES[category];
-  return (
-    <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground", className)}>
-      <Icon name={meta.icon} className="size-[18px]" />
-    </span>
-  );
 }
 
 export const TONE_BG: Record<CardTone, string> = {

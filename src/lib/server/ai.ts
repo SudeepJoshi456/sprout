@@ -136,7 +136,6 @@ function learnerContext(user: UserState) {
     p.reasons.includes("new_to_money") ? "new to managing money" : null,
     p.reasons.includes("learn_investing") ? "wants to learn investing" : null,
     p.goal ? `goal: ${p.goal.replace(/_/g, " ")}` : null,
-    user.budget.period === "semester" ? "budgets by semester as a student" : "budgets monthly",
     `${Object.keys(user.learning.completed).length} lessons completed`,
     user.portfolio.holdings.length ? `practice portfolio has ${user.portfolio.holdings.length} holdings` : "has not started practice investing",
   ].filter(Boolean);

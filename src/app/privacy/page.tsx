@@ -10,12 +10,12 @@ export default function PrivacyPage() {
     <Screen title={t("legal.privacyTitle")} back="/">
       <p className="mb-6 text-caption text-muted-foreground">{t("legal.updated")}</p>
       <LegalSection title="What we collect">
-        Your email, a secure hash of your password (never the password itself), what you enter during setup and in Budget,
+        Your email, a secure hash of your password (never the password itself), what you enter during setup,
         your @username, the wallet address you connect, and your activity in the app such as lessons, practice trades and
         payments. We don&apos;t ask for your SSN, bank login or card numbers.
       </LegalSection>
       <LegalSection title="How we use it">
-        Only to run Sprout for you: signing you in, showing your budget and progress, and sending or receiving test payments
+        Only to run Sprout for you: signing you in, showing your brands, practice portfolio and progress, and sending or receiving test payments
         you ask for. We don&apos;t sell your data, show ads or use tracking or analytics tools.
       </LegalSection>
       <LegalSection title="Who else sees it">

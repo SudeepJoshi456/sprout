@@ -11,7 +11,7 @@ export default function TermsPage() {
       <p className="mb-6 text-caption text-muted-foreground">{t("legal.updated")}</p>
       <LegalSection title="What Sprout is">
         Sprout is a student prototype built to teach money basics. It is not a bank, money transmitter, broker or financial
-        adviser, and it does not hold your money. Lessons, budgets and the coach are educational only and are not financial,
+        adviser, and it does not hold your money. Lessons, brand pages and the coach are educational only and are not financial,
         legal or tax advice.
       </LegalSection>
       <LegalSection title="Test money only">

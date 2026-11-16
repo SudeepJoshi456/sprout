@@ -106,7 +106,7 @@ await step("receive tab shows my username", async () => {
 });
 
 await step("other tabs load", async () => {
-  for (const p of ["/budget", "/grow", "/learn", "/profile", "/add-money"]) {
+  for (const p of ["/grow", "/learn", "/profile", "/add-money"]) {
     const r = await page.goto(`${BASE}${p}`);
     if (!r || r.status() !== 200) throw new Error(`${p} → ${r?.status()}`);
   }

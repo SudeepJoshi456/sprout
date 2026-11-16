@@ -49,13 +49,7 @@ await step("sign up and onboard a new person", async () => {
   await signUpAndOnboard(page, BASE, { email, fullName: "Maya Torres", preferred: "Maya" });
 });
 
-await step("new account starts empty: no sample people, bills or transactions", async () => {
-  await page.goto(`${BASE}/budget?tab=bills`);
-  await main().getByText(/No upcoming bills/).waitFor();
-  await page.goto(`${BASE}/budget?tab=transactions`);
-  for (const sample of ["Himalayan Grocery", "Sita Joshi", "Money from home"]) {
-    if (await main().getByText(sample).count()) throw new Error(`sample data "${sample}" shown to a new account`);
-  }
+await step("new account starts empty: no sample people", async () => {
   await page.goto(`${BASE}/move`);
   if (await main().getByText(/Sita Joshi|Ana López|Daniel Kim/).count()) throw new Error("sample contacts shown");
 });

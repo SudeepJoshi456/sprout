@@ -10,22 +10,6 @@ export type IdType = "ssn" | "itin" | "passport";
 export type VisaType = "F-1" | "J-1" | "H-1B" | "other";
 export type Reason = "new_to_us" | "new_to_money" | "learn_investing";
 export type Goal = "emergency_fund" | "send_home" | "start_investing" | "understand_credit";
-export type BudgetPeriod = "monthly" | "semester";
-
-export type CategoryId =
-  | "rent"
-  | "groceries"
-  | "dining"
-  | "transport"
-  | "phone"
-  | "subscriptions"
-  | "tuition"
-  | "shopping"
-  | "entertainment"
-  | "health"
-  | "income"
-  | "transfer"
-  | "other";
 
 export interface Profile {
   id: string;
@@ -45,13 +29,14 @@ export interface Profile {
   /** ISO 4217 code for the "≈ home currency" display, e.g. "NPR". */
   homeCurrency: string | null;
   walletAddress: string | null;
+  /** Ticker symbols of the brands the person picked, e.g. ["NKE", "SBUX"]. */
+  brands: string[];
   onboarded: boolean;
 }
 
 export interface Settings {
   showHomeCurrency: boolean;
   notifications: {
-    bills: boolean;
     coach: boolean;
     learning: boolean;
     transfers: boolean;
@@ -64,50 +49,6 @@ export interface Account {
   lastFour: string | null;
   balanceCents: number;
   currency: "USD";
-}
-
-export interface Transaction {
-  id: string;
-  /** ISO timestamp */
-  date: string;
-  description: string;
-  amountCents: number; // negative = money out
-  category: CategoryId;
-  transferId?: string;
-  /** Added by hand (cash, card or anything outside the wallet), so it can be deleted. */
-  manual?: boolean;
-}
-
-export interface BudgetCategory {
-  id: CategoryId;
-  monthlyLimitCents: number;
-  /** Essentials are protected from "safe to spend". */
-  essential: boolean;
-}
-
-export interface Semester {
-  name: string;
-  start: string; // ISO date
-  end: string; // ISO date
-}
-
-export interface Budget {
-  period: BudgetPeriod;
-  semester: Semester;
-  categories: BudgetCategory[];
-}
-
-export interface Bill {
-  id: string;
-  name: string;
-  category: CategoryId;
-  amountCents: number;
-  dueDate: string; // ISO date
-  /** Money protected for this bill. Subtracted from "safe to spend" until paid. */
-  setAsideCents: number;
-  paid: boolean;
-  paidAt?: string;
-  payeeContactId?: string;
 }
 
 export interface Contact {
@@ -160,7 +101,6 @@ export interface Transfer {
   idempotencyKey: string;
   mode: PaymentsMode;
   note?: string;
-  billId?: string;
   /** Open Payments outgoing payment URL in interledger mode. */
   externalId?: string;
   steps?: PaymentStep[];
@@ -222,7 +162,7 @@ export interface Learning {
 
 export interface CoachMessage {
   id: string;
-  kind: "trade" | "daily" | "budget" | "welcome";
+  kind: "trade" | "daily" | "welcome";
   title: string;
   body: string;
   lessonId?: string;
@@ -239,9 +179,6 @@ export interface UserState {
   profile: Profile;
   settings: Settings;
   account: Account;
-  transactions: Transaction[];
-  budget: Budget;
-  bills: Bill[];
   contacts: Contact[];
   transfers: Transfer[];
   requests: PaymentRequest[];

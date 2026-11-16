@@ -5,7 +5,6 @@
  */
 import { LESSON_META } from "@/data/lessons";
 import type { LessonSummary, UserState } from "./types";
-import { periodRange, summarizeCategories } from "./budget";
 import { diversification, valuePortfolio, type PriceMap } from "./portfolio";
 
 interface Signal {
@@ -70,16 +69,7 @@ export function rankLessons(state: UserState, prices: PriceMap): LessonSummary[]
     bump("investing-fees", 2, "Because you hold a fund");
   }
   if (state.transfers.some((t) => t.direction === "out")) bump("how-interledger-works", 1, "Because you've sent money with Sprout");
-  if (state.budget.period === "semester") bump("semester-budget", 2, "Because you budget by semester");
   if (state.transfers.some((t) => t.direction === "in" && t.rate)) bump("send-home", 1, "Because you receive money from abroad");
-
-  // Spending patterns: categories close to or over their limit.
-  const r = periodRange(state.budget);
-  const tight = summarizeCategories(state, r).filter((c) => !c.essential && c.status !== "on_track");
-  if (tight.length > 0) {
-    bump("semester-budget", 2, `You're close to your ${tight[0].label.toLowerCase()} limit`);
-    bump("emergency-fund", 1, `You're close to your ${tight[0].label.toLowerCase()} limit`);
-  }
 
   // Practice portfolio behavior.
   const view = valuePortfolio(state.portfolio, prices);

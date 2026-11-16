@@ -17,7 +17,6 @@ const schema = z.object({
   quote: z.custom<PaymentQuote>((v) => typeof v === "object" && v !== null && "signature" in v),
   idempotencyKey: z.string().min(8).max(100),
   note: z.string().max(140).optional(),
-  billId: z.string().optional(),
   /** Display-only trace from the quote step, echoed back so the receipt shows the whole flow. */
   quoteSteps: z
     .array(z.object({ id: z.string().max(40), label: z.string().max(120), detail: z.string().max(400), server: z.string().max(200).optional(), ms: z.number(), simulated: z.boolean() }))
@@ -72,25 +71,10 @@ export async function POST(req: Request) {
       idempotencyKey: body.idempotencyKey,
       mode: result.mode,
       note: body.note,
-      billId: body.billId,
       externalId: result.externalId,
       steps: [...((body.quoteSteps ?? []) as PaymentStep[]), ...(result.steps ?? [])],
     };
     user.transfers.unshift(transfer);
-
-    const bill = body.billId ? user.bills.find((b) => b.id === body.billId && !b.paid) : undefined;
-    if (bill) {
-      bill.paid = true;
-      bill.paidAt = now;
-    }
-    user.transactions.unshift({
-      id: randomUUID(),
-      date: now,
-      description: `${bill ? bill.name : "Sent"} · ${q.receiverName}`,
-      amountCents: -q.debitCents,
-      category: bill ? bill.category : "transfer",
-      transferId: transfer.id,
-    });
-    return { transfer, paidBillId: bill?.id ?? null };
+    return { transfer };
   });
 }

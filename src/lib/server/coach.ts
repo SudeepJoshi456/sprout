@@ -2,7 +2,6 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { LESSON_META } from "@/data/lessons";
 import { TICKER_MAP } from "@/data/tickers";
-import { periodRange, safeToSpend, summarizeCategories } from "@/lib/budget";
 import { formatMoney } from "@/lib/format";
 import { diversification, valuePortfolio, type PriceMap } from "@/lib/portfolio";
 import type { CoachMessage, Trade, UserState } from "@/lib/types";
@@ -82,17 +81,9 @@ export function ensureDailyInsight(user: UserState, prices: PriceMap) {
   const today = new Date().toDateString();
   if (user.coach.some((c) => new Date(c.createdAt).toDateString() === today)) return;
 
-  const sts = safeToSpend(user);
-  const r = periodRange(user.budget);
-  const tight = summarizeCategories(user, r).find((c) => !c.essential && c.status !== "on_track");
   const div = diversification(valuePortfolio(user.portfolio, prices));
   let m: CoachMessage | null = null;
-  if (sts.uncoveredBills[0]) {
-    const { bill, gapCents } = sts.uncoveredBills[0];
-    m = message("budget", `${bill.name} is ${formatMoney(gapCents, { trimZeroCents: true })} short`, `Setting the rest aside now means you can't accidentally spend it. Budgeting by semester shows how.`, "semester-budget", "rule");
-  } else if (tight) {
-    m = message("budget", `${formatMoney(Math.max(0, tight.leftCents), { trimZeroCents: true })} left for ${tight.label.toLowerCase()}`, `That's about ${formatMoney(tight.perWeekCents, { trimZeroCents: true })} a week until ${r.end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}. Small weekly check-ins make this easier.`, "semester-budget", "rule");
-  } else if (div.level === "concentrated" && !div.largestIsFund) {
+  if (div.level === "concentrated" && !div.largestIsFund) {
     m = message("daily", `${div.largestPct}% of your practice money is in one stock`, `Here's what concentration risk means, in 2 minutes.`, "diversification", "rule");
   }
   if (m) user.coach.unshift(m);

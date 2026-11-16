@@ -31,7 +31,7 @@ export async function signUpAndOnboard(page, base, { email = uniqueEmail(), full
   await page.getByRole("heading", { name: /wallet/i }).first().waitFor();
   await page.getByRole("button", { name: /^(Continue|Skip for now|Skip)/ }).locator("visible=true").first().click();
 
-  await page.getByText("Build an emergency fund").click();
+  for (const name of ["Nike", "Spotify", "Starbucks"]) await page.getByRole("button", { name: new RegExp(`^${name}`) }).click();
   await page.getByRole("button", { name: "Finish setup" }).click();
   await page.waitForURL("**/home**");
   return email;

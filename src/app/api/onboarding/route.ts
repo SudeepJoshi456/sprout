@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BRAND_SYMBOLS, MIN_BRANDS } from "@/data/brands";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 import { normalizeWalletAddress } from "@/lib/server/payments";
 import { claimHandle } from "@/lib/server/users";
@@ -19,13 +20,14 @@ const schema = z.object({
   visaType: z.enum(["F-1", "J-1", "H-1B", "other"]).optional(),
   schoolEmail: z.union([z.literal(""), z.email()]).optional(),
   walletAddress: z.string().trim().optional(),
-  goal: z.enum(["emergency_fund", "send_home", "start_investing", "understand_credit"]),
+  goal: z.enum(["emergency_fund", "send_home", "start_investing", "understand_credit"]).default("start_investing"),
+  brands: z.array(z.string().refine((s) => BRAND_SYMBOLS.includes(s), "Unknown brand")).max(BRAND_SYMBOLS.length).min(MIN_BRANDS),
 });
 
 const WELCOME_LESSON: Record<string, { lessonId: string; title: string; body: string }> = {
   understand_credit: { lessonId: "credit-new", title: "Start with how US credit works", body: "Credit scores trip up almost everyone at first. This 2-minute lesson explains how they work and how to build one safely." },
   send_home: { lessonId: "send-home", title: "See where transfer fees hide", body: "A bad exchange rate can cost more than the fee. This 2-minute lesson shows you how to compare transfers honestly." },
-  start_investing: { lessonId: "index-funds", title: "Start with index funds", body: "Many people begin with funds that hold hundreds of companies at once. Learn how they work in 3 minutes, then practice." },
+  start_investing: { lessonId: "what-is-a-stock", title: "What owning a brand really means", body: "When you buy a share of a brand you love, you own a tiny piece of the company. This 2-minute lesson shows what that means." },
   emergency_fund: { lessonId: "emergency-fund", title: "Your first $500 cushion", body: "An emergency fund keeps surprises from turning into debt. Here's a simple, student-sized way to start." },
 };
 
@@ -51,10 +53,10 @@ export async function POST(req: Request) {
       verified: true,
       goal: body.goal,
       walletAddress: wallet,
+      brands: [...new Set(body.brands)],
       onboarded: true,
     };
-    const reasonsNewToUs = body.reasons.includes("new_to_us");
-    const pick = reasonsNewToUs && body.goal !== "send_home" ? WELCOME_LESSON.understand_credit : WELCOME_LESSON[body.goal];
+    const pick = WELCOME_LESSON[body.goal];
     const welcome: CoachMessage = {
       id: `coach_welcome_${Date.now()}`,
       kind: "welcome",

@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import type { BudgetCategory, UserState } from "@/lib/types";
+import type { UserState } from "@/lib/types";
 import { handleFor } from "@/lib/handles";
 import { STARTING_SEEDS_CENTS } from "@/lib/portfolio";
 import { del, getJson, setJson, setJsonIfAbsent } from "./db";
@@ -105,25 +105,7 @@ export function memberLabel(record: UserRecord) {
   return name && handle ? `${name} (${handle})` : name || handle || "Sprout member";
 }
 
-/** Standard categories with no limits yet; the person sets their own. */
-const STARTER_CATEGORIES: BudgetCategory[] = [
-  { id: "groceries", monthlyLimitCents: 0, essential: true },
-  { id: "transport", monthlyLimitCents: 0, essential: true },
-  { id: "dining", monthlyLimitCents: 0, essential: false },
-  { id: "shopping", monthlyLimitCents: 0, essential: false },
-  { id: "subscriptions", monthlyLimitCents: 0, essential: false },
-  { id: "entertainment", monthlyLimitCents: 0, essential: false },
-];
-
-export function currentSemester(now: Date) {
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  if (m >= 7) return { name: `Fall ${y}`, start: `${y}-08-24`, end: `${y}-12-18` };
-  if (m >= 4) return { name: `Summer ${y}`, start: `${y}-05-18`, end: `${y}-08-14` };
-  return { name: `Spring ${y}`, start: `${y}-01-12`, end: `${y}-05-08` };
-}
-
-export function newUserState(id: string, now = new Date()): UserState {
+export function newUserState(id: string): UserState {
   return {
     profile: {
       id,
@@ -141,13 +123,11 @@ export function newUserState(id: string, now = new Date()): UserState {
       goal: null,
       homeCurrency: null,
       walletAddress: null,
+      brands: [],
       onboarded: false,
     },
-    settings: { showHomeCurrency: false, notifications: { bills: true, coach: true, learning: true, transfers: true } },
+    settings: { showHomeCurrency: false, notifications: { coach: true, learning: true, transfers: true } },
     account: { name: "Interledger wallet", lastFour: null, balanceCents: 0, currency: "USD" },
-    transactions: [],
-    budget: { period: "monthly", semester: currentSemester(now), categories: STARTER_CATEGORIES.map((c) => ({ ...c })) },
-    bills: [],
     contacts: [],
     transfers: [],
     requests: [],

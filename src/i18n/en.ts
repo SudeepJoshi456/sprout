@@ -34,9 +34,8 @@ export const en = {
   tabs: {
     label: "Main",
     home: "Home",
-    budget: "Budget",
-    move: "Send & Receive",
-    grow: "Practice Investing",
+    move: "Wallet",
+    grow: "Invest",
     learn: "Learn",
   },
   welcome: {
@@ -218,6 +217,13 @@ export const en = {
       credit: "Understand credit",
       creditHint: "How US credit scores work",
       finish: "Finish setup",
+    },
+    brands: {
+      title: "Pick brands you love",
+      sub: "Choose at least {n}. You'll learn investing through the companies behind them.",
+      pickMore: "Pick {n} more",
+      finish: "Finish setup",
+      note: "Picking a brand doesn't buy anything. It just shapes what you learn first.",
     },
     finishing: "Setting up your account…",
     welcomeTitle: "Welcome to Sprout, {name}",

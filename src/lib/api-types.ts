@@ -42,7 +42,6 @@ export interface QuoteResponse {
 export interface SendResponse {
   transfer: Transfer;
   duplicate?: boolean;
-  paidBillId?: string | null;
 }
 
 export interface TradeResponse {

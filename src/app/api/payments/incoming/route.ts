@@ -79,14 +79,6 @@ export async function POST(req: Request) {
         ],
       };
       user.transfers.unshift(transfer);
-      user.transactions.unshift({
-        id: randomUUID(),
-        date: now,
-        description: `Received · ${label}`,
-        amountCents: delta,
-        category: "income",
-        transferId: transfer.id,
-      });
       received.push(transfer);
     }
     return { live: true, received };

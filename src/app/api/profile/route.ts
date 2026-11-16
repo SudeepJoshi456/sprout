@@ -1,18 +1,20 @@
 import { z } from "zod";
+import { BRAND_SYMBOLS } from "@/data/brands";
 import { ApiError, parseBody, withSession } from "@/lib/server/http";
 import { liveMode, normalizeWalletAddress } from "@/lib/server/payments";
 import { setWalletOwner } from "@/lib/server/users";
 
-/** PATCH /api/profile: settings, display currency, name, and (offline mode only) the wallet address. */
+/** PATCH /api/profile: settings, display currency, name, brands, and (offline mode only) the wallet address. */
 const schema = z.object({
   showHomeCurrency: z.boolean().optional(),
   notifications: z
-    .object({ bills: z.boolean(), coach: z.boolean(), learning: z.boolean(), transfers: z.boolean() })
+    .object({ coach: z.boolean(), learning: z.boolean(), transfers: z.boolean() })
     .partial()
     .optional(),
   walletAddress: z.string().trim().nullable().optional(),
   homeCurrency: z.string().regex(/^[A-Z]{3}$/).nullable().optional(),
   preferredName: z.string().trim().min(1).max(60).optional(),
+  brands: z.array(z.string().refine((s) => BRAND_SYMBOLS.includes(s), "Unknown brand")).max(BRAND_SYMBOLS.length).optional(),
 });
 
 export async function PATCH(req: Request) {
@@ -30,5 +32,6 @@ export async function PATCH(req: Request) {
       if (next) await setWalletOwner(next, userId);
     }
     if (body.preferredName) user.profile.preferredName = body.preferredName;
+    if (body.brands) user.profile.brands = [...new Set(body.brands)];
   });
 }

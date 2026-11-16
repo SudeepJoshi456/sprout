@@ -196,7 +196,6 @@ export default function ProfilePage() {
           <SectionTitle id="pf-notif">{t("profile.notifications")}</SectionTitle>
           <Card className="divide-y divide-border py-1">
             <Switch checked={user.settings.notifications.transfers} onChange={(v) => setNotif("transfers", v)} label={t("profile.nTransfers")} />
-            <Switch checked={user.settings.notifications.bills} onChange={(v) => setNotif("bills", v)} label={t("profile.nBills")} />
             <Switch checked={user.settings.notifications.coach} onChange={(v) => setNotif("coach", v)} label={t("profile.nCoach")} />
             <Switch checked={user.settings.notifications.learning} onChange={(v) => setNotif("learning", v)} label={t("profile.nLearning")} />
           </Card>

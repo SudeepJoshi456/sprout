@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronDown, CircleAlert, CircleCheck, ClipboardPaste, Globe, Loader2, QrCode, Receipt, Search, Share2 } from "lucide-react";
+import { ChevronDown, CircleAlert, CircleCheck, ClipboardPaste, Globe, Loader2, QrCode, Search, Share2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, SimulatedBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,7 +64,6 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
   const [recipient, setRecipient] = useState<Recipient | null>(null);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [billId, setBillId] = useState<string | null>(null);
   const [quote, setQuote] = useState<QuoteResult | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [amountError, setAmountError] = useState<string | null>(null);
@@ -76,21 +75,13 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
 
   useEffect(() => onStageChange?.(stage), [stage, onStageChange]);
 
-  // Deep links: /move?to=…&amount=…&name=…&note=… (from request links) and ?bill=…
+  // Deep links: /move?to=…&amount=…&name=…&note=… (from request links)
   useEffect(() => {
     if (prefilled.current) return;
     prefilled.current = true;
     const to = params.get("to");
-    const bill = params.get("bill");
-    const linkedBill = bill ? user.bills.find((b) => b.id === bill && !b.paid) : undefined;
-    const contact = linkedBill?.payeeContactId ? user.contacts.find((c) => c.id === linkedBill.payeeContactId) : undefined;
-    if (contact && linkedBill) {
+    if (to) {
       /* eslint-disable react-hooks/set-state-in-effect -- one-time prefill from the URL */
-      setRecipient({ wallet: contact.walletAddress, name: contact.name, assetCode: contact.assetCode, contactId: contact.id });
-      setBillId(linkedBill.id);
-      setAmount(String(linkedBill.amountCents / 100));
-      setStage("amount");
-    } else if (to) {
       const known = user.contacts.find((c) => c.walletAddress === to);
       setRecipient({ wallet: to, name: params.get("name") || known?.name || nameFromWallet(to), assetCode: known?.assetCode ?? "USD", contactId: known?.id });
       const amt = params.get("amount");
@@ -99,14 +90,13 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
       setStage("amount");
       /* eslint-enable react-hooks/set-state-in-effect */
     }
-  }, [params, user.bills, user.contacts]);
+  }, [params, user.contacts]);
 
   const reset = () => {
     setStage("recipient");
     setRecipient(null);
     setAmount("");
     setNote("");
-    setBillId(null);
     setQuote(null);
     setIdemKey(null);
     setSendError(null);
@@ -144,7 +134,7 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
     try {
       const res = await api<SendResponse>("/api/payments/send", {
         method: "POST",
-        body: { quote: quote.quote, idempotencyKey: idemKey, note: note.trim() || undefined, billId: billId ?? undefined, quoteSteps: quote.steps },
+        body: { quote: quote.quote, idempotencyKey: idemKey, note: note.trim() || undefined, quoteSteps: quote.steps },
       });
       setResult(res);
       setStage("receipt");
@@ -207,7 +197,6 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
   }
 
   if (stage === "amount" && recipient) {
-    const bills = recipient.contactId ? user.bills.filter((b) => !b.paid && b.payeeContactId === recipient.contactId) : [];
     const cents = amountToCents(amount);
     return (
       <div className="flex min-h-full flex-col">
@@ -230,34 +219,7 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
             {amountError}
           </p>
         )}
-        <QuickChips amounts={[10, 25, 50, 100]} onPick={(n) => { setAmount(String(n)); setAmountError(null); setBillId(null); }} />
-        {bills.length > 0 && (
-          <div className="mt-3 flex flex-wrap justify-center gap-2" role="group" aria-label={t("move.billLink")}>
-            {bills.map((b) => {
-              const on = billId === b.id;
-              return (
-                <button
-                  key={b.id}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => {
-                    setBillId(on ? null : b.id);
-                    if (!on) setAmount(String(b.amountCents / 100));
-                    setAmountError(null);
-                  }}
-                  className={cn(
-                    "inline-flex min-h-11 items-center gap-1.5 rounded-full border-2 px-3 text-body font-medium",
-                    on ? "border-primary bg-accent/50" : "border-dashed border-input",
-                  )}
-                >
-                  <Receipt className="size-4" aria-hidden />
-                  {b.name} · {formatMoney(b.amountCents, { trimZeroCents: true })}
-                  {on && <CircleCheck className="size-4 text-primary" aria-hidden />}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <QuickChips amounts={[10, 25, 50, 100]} onPick={(n) => { setAmount(String(n)); setAmountError(null); }} />
         <Field
           label={t("move.note")}
           placeholder={t("move.notePlaceholder")}
@@ -294,7 +256,6 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
           {q.rate && <Row label={t("move.rate")} value={t("move.rateValue", { rate: `${q.rate} ${q.receive.currency}` })} />}
           <Row label={t("move.theyReceive", { name: q.receiverName.split(" (")[0] })} value={formatForeign(q.receive.value, q.receive.currency)} strong />
           <Row label={t("move.arrival")} value={t("move.arrivalSeconds")} />
-          {billId && <Row label={t("move.paysBill")} value={user.bills.find((b) => b.id === billId)?.name ?? ""} />}
           {note.trim() && <Row label={t("move.note")} value={note.trim()} />}
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <dt className="text-body text-muted-foreground">{t("move.via")}</dt>
@@ -353,7 +314,6 @@ export function SendFlow({ onStageChange }: { onStageChange?: (stage: Stage) => 
           <h2 className="mt-3 font-display text-headline font-semibold">{t("move.receiptTitle")}</h2>
           <p className="text-body text-muted-foreground">{t("move.receiptSub", { name: tr.counterpartyName.split(" (")[0] })}</p>
           <p className="tnum mt-2 font-display text-display font-semibold">{formatForeign(tr.counterpart.value, tr.counterpart.currency)}</p>
-          {result.paidBillId && <Badge tone="positive" className="mt-2">{t("budget.paid")} · {user.bills.find((b) => b.id === result.paidBillId)?.name}</Badge>}
         </div>
         <TransferDetails transfer={tr} />
         <div className="space-y-2">

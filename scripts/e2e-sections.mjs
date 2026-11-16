@@ -1,4 +1,4 @@
-// End-to-end check of Learn, Grow, and Budget in headless Chrome (no screenshots).
+// End-to-end check of Learn and Invest in headless Chrome (no screenshots).
 // Usage: node scripts/e2e-sections.mjs  (dev server on BASE, default :3100)
 import { chromium } from "playwright";
 import { signUpAndOnboard } from "./e2e-helpers.mjs";
@@ -112,61 +112,6 @@ await step("holding shows on the asset page and in the portfolio", async () => {
   await page.getByText("Your position").waitFor();
   await page.goto(`${BASE}/grow`);
   await page.getByRole("link", { name: /Vanguard S&P 500/ }).first().waitFor();
-});
-
-// ── Budget ──
-await step("Budget overview: summary and tabs; new account asks for limits", async () => {
-  await page.goto(`${BASE}/budget`);
-  await page.getByText("left to spend across all categories").waitFor();
-  await page.getByText(/Set a monthly limit for each category/).waitFor();
-  for (const name of ["Overview", "Categories", "Bills", "Transactions"]) await page.getByRole("tab", { name }).waitFor();
-});
-
-await step("switch to semester and back", async () => {
-  await page.getByRole("radio", { name: "Semester" }).click();
-  await page.getByText(/Fall|Spring|Summer|Semester/).first().waitFor();
-  await page.getByRole("radio", { name: "Monthly" }).click();
-});
-
-await step("set the Dining out limit to $150", async () => {
-  await page.getByRole("tab", { name: "Categories" }).click();
-  await page.getByRole("button", { name: /^Dining out\./ }).click();
-  for (let i = 0; i < 8; i++) await page.getByRole("button", { name: "Delete" }).click();
-  for (const k of ["1", "5", "0"]) await page.getByRole("button", { name: k, exact: true }).click();
-  await page.getByRole("button", { name: "Save" }).click();
-  await page.getByText("Dining out limit updated").waitFor();
-  await page.getByText("/ $150").first().waitFor();
-});
-
-await step("add a bill", async () => {
-  await page.getByRole("tab", { name: "Bills" }).click();
-  await page.getByText(/No upcoming bills/).waitFor();
-  await page.getByRole("button", { name: "Add a bill" }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("What's the bill?").fill("Rent");
-  await dialog.getByLabel("Amount (USD)").fill("850");
-  const due = new Date(Date.now() + 10 * 864e5).toISOString().slice(0, 10);
-  await dialog.getByLabel("Due date").fill(due);
-  await dialog.getByRole("button", { name: "Rent", exact: true }).click();
-  await dialog.getByRole("button", { name: "Add a bill" }).click();
-  await page.getByText("Rent added").waitFor();
-  await page.locator("main").getByText("$850").first().waitFor();
-});
-
-await step("set aside the full amount, then remove the bill", async () => {
-  await page.getByRole("button", { name: "Set aside for Rent" }).click();
-  await page.getByRole("button", { name: "Set aside full amount" }).click();
-  await page.getByRole("button", { name: "Save" }).click();
-  await page.getByText(/^Saved for /).waitFor();
-  await page.getByRole("button", { name: "Set aside for Rent" }).click();
-  await page.getByRole("button", { name: "Remove this bill" }).click();
-  await page.getByText("Rent removed").waitFor();
-  await page.getByText(/No upcoming bills/).waitFor();
-});
-
-await step("transactions tab is empty for a new account", async () => {
-  await page.getByRole("tab", { name: "Transactions" }).click();
-  if (await page.getByText("Himalayan Grocery").count()) throw new Error("sample transactions shown");
 });
 
 console.log(problems.length ? `\nProblems:\n  ${[...new Set(problems)].join("\n  ")}` : "\nNo browser errors.");

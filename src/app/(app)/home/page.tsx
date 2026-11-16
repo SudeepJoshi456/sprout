@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
-import { ArrowDownLeft, BookOpen, CalendarClock, ChartLine, ChevronRight, Landmark, Plus, Sprout, Wallet, X } from "lucide-react";
+import { ArrowDownLeft, BookOpen, ChartLine, ChevronRight, Landmark, Plus, Sprout, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Money } from "@/components/ui/money";
@@ -12,11 +12,9 @@ import { SimulatedBadge } from "@/components/ui/badge";
 import { ConnectWallet, WalletReturnNotice } from "@/components/money/connect-wallet";
 import { WalletActivityCard } from "@/components/money/wallet-activity";
 import { ButtonLink } from "@/components/ui/button";
-import { periodRange, summarizeCategories, unpaidBills } from "@/lib/budget";
 import { useAppState, useResource } from "@/lib/client/hooks";
-import { cn, formatMoney, formatPercent, msFromNow, relativeDays } from "@/lib/format";
+import { formatPercent } from "@/lib/format";
 import type { LessonsResponse, PortfolioResponse } from "@/lib/api-types";
-import type { UserState } from "@/lib/types";
 import { t } from "@/i18n";
 
 function greetingKey() {
@@ -55,7 +53,7 @@ export default function HomePage() {
             <ConnectWallet returnTo="/home" />
           </Card>
         )}
-        <Overview user={user} userId={userId} />
+        <Overview userId={userId} />
       </main>
     </>
   );
@@ -125,13 +123,7 @@ function OfflineCard() {
 }
 
 /** One small tile per section: the single most useful number, and a link to the full page. */
-function Overview({ user, userId }: { user: UserState; userId: string }) {
-  const r = periodRange(user.budget);
-  const cats = summarizeCategories(user, r);
-  const left = Math.max(0, cats.reduce((s, c) => s + c.limitCents - c.spentCents, 0));
-  const over = cats.filter((c) => c.status === "over").length;
-  const bill = unpaidBills(user.bills)[0];
-  const billSoon = bill && msFromNow(bill.dueDate) < 3 * 86_400_000;
+function Overview({ userId }: { userId: string }) {
   const lessons = useResource<LessonsResponse>(`/api/lessons?u=${userId}`);
   const portfolio = useResource<PortfolioResponse>(`/api/portfolio?range=1D&u=${userId}`);
   const next = lessons.data?.lessons.find((l) => !l.completed);
@@ -143,24 +135,6 @@ function Overview({ user, userId }: { user: UserState; userId: string }) {
         {t("home.overview")}
       </h2>
       <div className="grid grid-cols-2 gap-3">
-        <Tile href="/budget" icon={<Wallet className="size-4" aria-hidden />} label={t("tabs.budget")}>
-          <p className="tnum font-display text-title font-semibold">{formatMoney(left, { trimZeroCents: true })}</p>
-          <p className={cn("text-caption", over ? "font-semibold text-negative" : "text-muted-foreground")}>
-            {over ? t("home.overCount", { n: over }) : t("home.leftThis", { period: r.period === "semester" ? t("budget.periodSemester").toLowerCase() : t("home.monthWord") })}
-          </p>
-        </Tile>
-        <Tile href="/budget?tab=bills" icon={<CalendarClock className="size-4" aria-hidden />} label={t("home.billsTitle")}>
-          {bill ? (
-            <>
-              <p className="truncate font-display text-title font-semibold">{bill.name}</p>
-              <p className={cn("text-caption", billSoon ? "font-semibold text-warning" : "text-muted-foreground")}>
-                {formatMoney(bill.amountCents, { trimZeroCents: true })} · {relativeDays(bill.dueDate)}
-              </p>
-            </>
-          ) : (
-            <p className="text-body text-muted-foreground">{t("home.billsNoneShort")}</p>
-          )}
-        </Tile>
         <Tile href="/grow" icon={<ChartLine className="size-4" aria-hidden />} label={t("tabs.grow")}>
           {view ? (
             <>

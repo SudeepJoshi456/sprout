@@ -7,18 +7,15 @@ import {
   ChevronDown,
   ChevronLeft,
   CircleCheck,
-  CreditCard,
   Eye,
   EyeOff,
   Globe,
-  HeartHandshake,
   IdCard,
   LineChart,
   Lock,
   Plane,
   Scale,
   ShieldCheck,
-  Umbrella,
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,7 +28,9 @@ import { ConnectWallet, WalletReturnNotice } from "@/components/money/connect-wa
 import { useBootstrap, useClientState, useReducedMotion } from "@/lib/client/hooks";
 import { cn } from "@/lib/format";
 import { atHandle } from "@/lib/handles";
-import type { Goal, IdType, Reason, VisaType } from "@/lib/types";
+import type { IdType, Reason, VisaType } from "@/lib/types";
+import { BrandPicker } from "@/components/grow/brand-tile";
+import { MIN_BRANDS } from "@/data/brands";
 import { t } from "@/i18n";
 
 const TOTAL = 5;
@@ -60,7 +59,7 @@ interface Draft {
   idLast4: string | null;
   walletAddress: string;
   walletCurrency: string | null;
-  goal: Goal | null;
+  brands: string[];
 }
 
 const EMPTY: Draft = {
@@ -75,7 +74,7 @@ const EMPTY: Draft = {
   idLast4: null,
   walletAddress: "",
   walletCurrency: null,
-  goal: null,
+  brands: [],
 };
 
 function loadDraft(): Draft {
@@ -148,7 +147,7 @@ export default function OnboardingPage() {
           {step === 3 && <IdentityStep draft={draft} update={update} headingRef={headingRef} onNext={() => go(4)} />}
           {step === 4 && <WalletStep draft={draft} update={update} headingRef={headingRef} onNext={() => go(5)} />}
           {step === 5 && (
-            <GoalStep
+            <BrandsStep
               draft={draft}
               update={update}
               headingRef={headingRef}
@@ -619,20 +618,15 @@ function WalletStep({ draft, headingRef, onNext }: StepProps & { onNext: () => v
   );
 }
 
-function GoalStep({ draft, update, headingRef, onDone }: StepProps & { onDone: () => void }) {
+function BrandsStep({ draft, update, headingRef, onDone }: StepProps & { onDone: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const goals: { id: Goal; title: string; hint: string; Icon: typeof Umbrella }[] = [
-    { id: "emergency_fund", title: t("onboarding.goal.emergency"), hint: t("onboarding.goal.emergencyHint"), Icon: Umbrella },
-    { id: "send_home", title: t("onboarding.goal.sendHome"), hint: t("onboarding.goal.sendHomeHint"), Icon: HeartHandshake },
-    { id: "start_investing", title: t("onboarding.goal.investing"), hint: t("onboarding.goal.investingHint"), Icon: LineChart },
-    { id: "understand_credit", title: t("onboarding.goal.credit"), hint: t("onboarding.goal.creditHint"), Icon: CreditCard },
-  ];
+  const enough = draft.brands.length >= MIN_BRANDS;
 
   const finish = async () => {
-    if (!draft.goal || !draft.idType || !draft.idLast4) {
+    if (!draft.idType || !draft.idLast4) {
       // Missing an earlier step (e.g. a stale draft): send them back to it.
-      if (!draft.idLast4) update({ step: 3 });
+      update({ step: 3 });
       return;
     }
     setSubmitting(true);
@@ -643,13 +637,14 @@ function GoalStep({ draft, update, headingRef, onDone }: StepProps & { onDone: (
         body: {
           fullName: draft.fullName.trim(),
           preferredName: draft.preferredName.trim() || undefined,
-          reasons: draft.reasons.length ? draft.reasons : ["new_to_money"],
+          reasons: draft.reasons.length ? draft.reasons : ["learn_investing"],
           idType: draft.idType,
           idLast4: draft.idLast4,
           idCountry: draft.idType === "passport" ? draft.idCountry : undefined,
           visaType: draft.idType === "passport" ? draft.visaType : undefined,
           schoolEmail: draft.idType === "passport" ? draft.schoolEmail.trim() : undefined,
-          goal: draft.goal,
+          goal: "start_investing",
+          brands: draft.brands,
         },
       });
       onDone();
@@ -661,8 +656,8 @@ function GoalStep({ draft, update, headingRef, onDone }: StepProps & { onDone: (
 
   return (
     <StepLayout
-      title={t("onboarding.goal.title")}
-      sub={t("onboarding.goal.sub")}
+      title={t("onboarding.brands.title")}
+      sub={t("onboarding.brands.sub", { n: MIN_BRANDS })}
       headingRef={headingRef}
       footer={
         <>
@@ -671,30 +666,16 @@ function GoalStep({ draft, update, headingRef, onDone }: StepProps & { onDone: (
               {error}
             </p>
           )}
-          <Button size="lg" onClick={finish} disabled={!draft.goal} loading={submitting} loadingText={t("onboarding.finishing")}>
-            {t("onboarding.goal.finish")}
+          <Button size="lg" onClick={finish} disabled={!enough} loading={submitting} loadingText={t("onboarding.finishing")}>
+            {enough ? t("onboarding.brands.finish") : t("onboarding.brands.pickMore", { n: MIN_BRANDS - draft.brands.length })}
           </Button>
         </>
       }
     >
-      <fieldset className="space-y-3">
-        <legend className="sr-only">{t("onboarding.goal.title")}</legend>
-        {goals.map((g) => (
-          <ChoiceCard
-            key={g.id}
-            type="radio"
-            name="goal"
-            checked={draft.goal === g.id}
-            onChange={() => update({ goal: g.id })}
-            title={g.title}
-            hint={g.hint}
-            icon={<g.Icon className="size-5" aria-hidden />}
-          />
-        ))}
-      </fieldset>
+      <BrandPicker selected={draft.brands} onChange={(brands) => update({ brands })} label={t("onboarding.brands.title")} />
       <p className="mt-6 flex items-start gap-2 text-caption text-muted-foreground">
         <BookOpen className="mt-0.5 size-4 shrink-0" aria-hidden />
-        {t("app.prototypeNotice")}
+        {t("onboarding.brands.note")}
       </p>
     </StepLayout>
   );

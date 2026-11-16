@@ -37,7 +37,7 @@ export const LESSONS: Prewritten[] = [
       { question: "Which habit matters most for your score?", options: ["Paying on time", "Opening many cards", "Checking your score often"], answerIndex: 0, explanation: "Payment history is the biggest factor, about 35% of a typical score." },
       { question: "Your secured card has a $200 limit. What's a healthy balance to carry when the bill comes?", options: ["$190", "Under $60", "It doesn't matter"], answerIndex: 1, explanation: "Staying under 30% of your limit, here $60, shows you use credit lightly." },
     ],
-    action: { label: "See which bills Sprout helps you pay on time", href: "/budget" },
+    action: { label: "Try investing in a brand you know", href: "/grow" },
   },
   {
     id: "ssn-vs-itin",
@@ -196,7 +196,7 @@ export const LESSONS: Prewritten[] = [
       { question: "Where should an emergency fund usually live?", options: ["In stocks", "In a safe, easy-to-reach account", "In a credit card"], answerIndex: 1, explanation: "You need it to be there and stable when surprises hit." },
       { question: "$10 a week adds up to about how much in a year?", options: ["$120", "$520", "$1,000"], answerIndex: 1, explanation: "52 weeks × $10 = $520." },
     ],
-    action: { label: "See what's safe to spend", href: "/budget" },
+    action: { label: "Pick brands you love on Invest", href: "/grow" },
   },
   {
     id: "semester-budget",
@@ -213,7 +213,7 @@ export const LESSONS: Prewritten[] = [
       { question: "What's a simple way to find your weekly room?", options: ["Spend freely until it's gone", "Money left after bills ÷ weeks left", "Ask a friend"], answerIndex: 1, explanation: "Spreading it evenly keeps December from being a crunch." },
       { question: "When should you set aside rent?", options: ["When money lands", "The day before it's due", "Never"], answerIndex: 0, explanation: "Protecting it early means you can't accidentally spend it." },
     ],
-    action: { label: "Switch your budget to semester view", href: "/budget?period=semester" },
+    action: { label: "Pick brands you love on Invest", href: "/grow" },
   },
   {
     id: "compound-growth",
@@ -299,7 +299,7 @@ export const LESSONS: Prewritten[] = [
       { question: "Which site gives the official free credit reports?", options: ["Any site that says \"free\"", "AnnualCreditReport.com", "Your bank's app only"], answerIndex: 1, explanation: "It's the one site authorized by federal law." },
       { question: "Does checking your own report lower your score?", options: ["Yes, a little", "No"], answerIndex: 1, explanation: "Checking your own credit is a soft check and never hurts your score." },
     ],
-    action: { label: "See bills that build good habits", href: "/budget" },
+    action: { label: "Explore brands on Invest", href: "/grow" },
   },
   {
     id: "investing-fees",
