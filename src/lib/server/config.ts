@@ -25,7 +25,8 @@ function normalizeAppUrl(value: string | undefined): string | null {
 
 export const config = {
   paymentsMode: pick<PaymentsMode>(process.env.PAYMENTS_MODE, ["mock", "interledger"], "mock"),
-  aiMode: pick<AiMode>(process.env.AI_MODE, ["mock", "live"], "mock"),
+  /** AI turns on when a Gemini key is set, unless AI_MODE=mock forces it off. */
+  aiMode: pick<AiMode>(process.env.AI_MODE, ["mock", "live"], process.env.GEMINI_API_KEY ? "live" : "mock"),
   marketMode: pick<MarketMode>(process.env.MARKET_MODE, ["snapshot", "live"], "snapshot"),
 
   sessionSecret: process.env.SESSION_SECRET || DEV_SECRET,
@@ -33,9 +34,10 @@ export const config = {
   appUrl: normalizeAppUrl(process.env.APP_URL),
   dataDir: process.env.DATA_DIR || (process.env.VERCEL ? "/tmp/sprout-data" : ".data"),
 
+  /** Google Gemini, used for lessons, brand explainers and the coach. */
   ai: {
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    model: process.env.AI_MODEL || "claude-sonnet-5-5",
+    apiKey: process.env.GEMINI_API_KEY,
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
     timeoutMs: Number(process.env.AI_TIMEOUT_MS || 25_000),
   },
 

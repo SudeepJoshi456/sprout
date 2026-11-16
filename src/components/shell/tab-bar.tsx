@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, ChartLine, House, Wallet } from "lucide-react";
+import { BookOpen, MessageCircle, ChartLine, House, Wallet } from "lucide-react";
 import { cn } from "@/lib/format";
 import { t } from "@/i18n";
 
 const TABS = [
   { href: "/home", label: "tabs.home", Icon: House },
   { href: "/grow", label: "tabs.grow", Icon: ChartLine },
-  { href: "/move", label: "tabs.move", Icon: Wallet },
   { href: "/learn", label: "tabs.learn", Icon: BookOpen },
+  { href: "/coach", label: "tabs.coach", Icon: MessageCircle },
+  { href: "/move", label: "tabs.move", Icon: Wallet },
 ] as const;
 
 /** Bottom tab bar: always visible, in the thumb zone, icons + labels. */
@@ -18,7 +19,7 @@ export function TabBar() {
   const pathname = usePathname();
   return (
     <nav aria-label={t("tabs.label")} className="safe-bottom shrink-0 border-t border-border bg-card/95 backdrop-blur">
-      <ul className="grid grid-cols-4">
+      <ul className="grid grid-cols-5">
         {TABS.map(({ href, label, Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (

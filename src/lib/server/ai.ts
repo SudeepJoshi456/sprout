@@ -1,14 +1,13 @@
 import "server-only";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod/v4";
 import { LESSON_META, getPrewrittenLesson } from "@/data/lessons";
 import { TICKER_MAP } from "@/data/tickers";
 import { LESSON_ICON_NAMES } from "@/lib/lesson-icons";
 import type { LessonContent, UserState } from "@/lib/types";
 import { config } from "./config";
+import { generateJson, geminiReady } from "./gemini";
 
 /**
  * AI lessons, asset explainers, and coach copy.
@@ -18,7 +17,7 @@ import { config } from "./config";
  * content so the demo works with AI_MODE=mock or without a key.
  */
 
-const GUARDRAILS = `You write for Sprout, a money-learning app for people starting from zero in the US financial system: international students, immigrants, and first-time earners.
+export const GUARDRAILS = `You write for Sprout, a money-learning app for people starting from zero in the US financial system: international students, immigrants, and first-time earners.
 
 Rules you must always follow:
 - Educational only. Never tell the reader to buy, sell, or hold any specific security, and never say what they "should" invest in.
@@ -75,7 +74,7 @@ const aboutOutput = z.object({ about: z.string().describe("2-3 sentences, at mos
 /** Phrases that would cross from education into advice or promises. */
 const FORBIDDEN = /\b(you should (buy|sell|invest)|guarantee[ds]?|risk[- ]free|can't lose|will (definitely|surely) (go up|rise)|buy now|sell now)\b/i;
 
-function passesGuardrails(text: string) {
+export function passesGuardrails(text: string) {
   return !FORBIDDEN.test(text);
 }
 
@@ -95,7 +94,7 @@ function loadCache() {
 }
 
 /** House style: no em dashes in anything we show, even if the model slips one in. */
-function noEmDashes<T>(value: T): T {
+export function noEmDashes<T>(value: T): T {
   if (typeof value === "string") return value.replace(/\s*—\s*/g, ", ") as T;
   if (Array.isArray(value)) return value.map(noEmDashes) as T;
   if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, noEmDashes(v)])) as T;
@@ -114,15 +113,8 @@ function remember<T>(key: string, raw: T) {
   return value;
 }
 
-let anthropic: Anthropic | null = null;
-function ai() {
-  if (config.aiMode !== "live" || !config.ai.apiKey) return null;
-  anthropic ??= new Anthropic({ apiKey: config.ai.apiKey, timeout: config.ai.timeoutMs, maxRetries: 1 });
-  return anthropic;
-}
-
 export function aiAvailable() {
-  return ai() !== null;
+  return geminiReady();
 }
 
 // ---- Context -------------------------------------------------------------
@@ -148,32 +140,25 @@ export async function getLesson(user: UserState, lessonId: string): Promise<Less
   const base = getPrewrittenLesson(lessonId);
   const meta = LESSON_META.find((l) => l.id === lessonId);
   if (!base || !meta) return null;
-  const client = ai();
-  if (!client) return base;
+  if (!aiAvailable()) return base;
 
   const key = `lesson:${user.profile.id}:${lessonId}`;
   const hit = cache.get(key) as LessonContent | undefined;
   if (hit) return hit;
 
   try {
-    const msg = await client.messages.parse({
-      model: config.ai.model,
-      max_tokens: 2000,
-      system: GUARDRAILS,
-      messages: [
-        {
-          role: "user",
-          content: `Write a bite-sized lesson titled "${meta.title}" (${meta.summary}).
+    const out = await generateJson(
+      GUARDRAILS,
+      `Write a bite-sized lesson titled "${meta.title}" (${meta.summary}).
 Learner: ${learnerContext(user)}.
 Make it feel like a short video: 4-6 story cards, each with a 3-7 word title and a body of at most 35 words, then 2-3 multiple-choice quiz questions that check understanding (not trivia).
 Tailor examples to the learner where it helps, without assuming anything not listed.
 Use this outline as the factual baseline (rewrite freely, keep facts accurate):
 ${base.cards.map((c) => `- ${c.title}: ${c.body}`).join("\n")}`,
-        },
-      ],
-      output_config: { format: zodOutputFormat(lessonOutput) },
-    });
-    const parsed = strictLesson.safeParse(msg.parsed_output);
+      lessonOutput,
+      2000,
+    );
+    const parsed = strictLesson.safeParse(out);
     if (!parsed.success) throw new Error(`Lesson failed validation: ${parsed.error.issues[0]?.message}`);
     const text = JSON.stringify(parsed.data);
     if (!passesGuardrails(text)) throw new Error("Lesson failed guardrail check");
@@ -187,25 +172,18 @@ ${base.cards.map((c) => `- ${c.title}: ${c.body}`).join("\n")}`,
 export async function explainAsset(symbol: string): Promise<{ about: string; source: "ai" | "prewritten" }> {
   const info = TICKER_MAP[symbol];
   const fallback = { about: info?.about ?? "", source: "prewritten" as const };
-  const client = ai();
-  if (!client || !info) return fallback;
+  if (!aiAvailable() || !info) return fallback;
   const key = `about:${symbol}`;
   const hit = cache.get(key) as { about: string; source: "ai" } | undefined;
   if (hit) return hit;
   try {
-    const msg = await client.messages.parse({
-      model: config.ai.model,
-      max_tokens: 400,
-      system: GUARDRAILS,
-      messages: [
-        {
-          role: "user",
-          content: `In 2-3 short sentences (max 55 words), explain what ${info.name} (${symbol}, ${info.kind === "etf" ? "a fund" : "a company"}) is and how it makes money, for someone who has never invested. Facts only, no opinions on whether it's a good investment.`,
-        },
-      ],
-      output_config: { format: zodOutputFormat(aboutOutput) },
-    });
-    const about = msg.parsed_output?.about?.trim();
+    const out = await generateJson(
+      GUARDRAILS,
+      `In 2-3 short sentences (max 55 words), explain what ${info.name} (${symbol}, ${info.kind === "etf" ? "a fund" : "a company"}) is and how it makes money, for someone who has never invested. Facts only, no opinions on whether it's a good investment.`,
+      aboutOutput,
+      400,
+    );
+    const about = out.about?.trim();
     if (!about || words(about) > 70 || !passesGuardrails(about)) throw new Error("About failed validation");
     return remember(key, { about, source: "ai" as const });
   } catch (err) {
@@ -222,25 +200,17 @@ export async function phraseCoach(
   user: UserState,
   draft: { title: string; body: string; lessonTitle: string; facts: string },
 ): Promise<{ title: string; body: string; source: "ai" | "rule" }> {
-  const client = ai();
-  if (!client) return { title: draft.title, body: draft.body, source: "rule" };
+  if (!aiAvailable()) return { title: draft.title, body: draft.body, source: "rule" };
   try {
-    const msg = await client.messages.parse({
-      model: config.ai.model,
-      max_tokens: 300,
-      system: `${GUARDRAILS}\nYou are a friendly practice-investing coach. One short insight, tied to a lesson. This is play money in a simulator.`,
-      messages: [
-        {
-          role: "user",
-          content: `Learner: ${learnerContext(user)}.
+    const out = await generateJson(
+      `${GUARDRAILS}\nYou are a friendly practice-investing coach. One short insight, tied to a lesson. This is play money in a simulator.`,
+      `Learner: ${learnerContext(user)}.
 What just happened: ${draft.facts}
 Write a title (max 9 words) and a body (max 40 words) that explains the concept behind this, then points to the lesson "${draft.lessonTitle}". Do not judge the decision or suggest a trade.`,
-        },
-      ],
-      output_config: { format: zodOutputFormat(coachOutput) },
-    });
-    const out = msg.parsed_output;
-    if (!out || words(out.body) > 45 || !passesGuardrails(`${out.title} ${out.body}`)) throw new Error("Coach failed validation");
+      coachOutput,
+      300,
+    );
+    if ( words(out.body) > 45 || !passesGuardrails(`${out.title} ${out.body}`)) throw new Error("Coach failed validation");
     return { title: noEmDashes(out.title), body: noEmDashes(out.body), source: "ai" };
   } catch (err) {
     console.warn("[ai] coach fell back to rule copy", err);

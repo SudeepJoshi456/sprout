@@ -30,7 +30,7 @@ await step("sign up a new person", async () => {
 
 await step("tabs say what they do", async () => {
   const nav = page.getByRole("navigation", { name: "Main" });
-  for (const name of ["Home", "Invest", "Wallet", "Learn"]) await nav.getByRole("link", { name }).waitFor();
+  for (const name of ["Home", "Invest", "Learn", "Coach", "Wallet"]) await nav.getByRole("link", { name }).waitFor();
 });
 
 await step("Home is a short overview", async () => {
@@ -76,7 +76,7 @@ await step("Profile hides testing tools until the version is tapped 5 times", as
 
 await step("no page scrolls sideways at 360px", async () => {
   const wide = [];
-  for (const p of ["/", "/home", "/move", "/move?tab=receive", "/move?tab=request", "/grow", "/grow?tab=explore", "/grow/AAPL", "/learn", "/profile", "/add-money"]) {
+  for (const p of ["/", "/home", "/move", "/move?tab=receive", "/move?tab=request", "/grow", "/grow?tab=explore", "/grow/AAPL", "/learn", "/coach", "/profile", "/add-money"]) {
     await page.goto(BASE + p);
     await page.waitForTimeout(700);
     const over = await page.evaluate(() => {
@@ -87,6 +87,13 @@ await step("no page scrolls sideways at 360px", async () => {
     if (over) wide.push(p);
   }
   if (wide.length) throw new Error(`sideways overflow on ${wide.join(", ")}`);
+});
+
+await step("Coach answers a suggested question and links a lesson", async () => {
+  await page.goto(`${BASE}/coach`);
+  await page.getByRole("button", { name: "Why do people buy index funds?" }).click();
+  await main().getByText(/index fund holds many companies|index fund/i).nth(1).waitFor();
+  await main().getByRole("link", { name: /Index funds/ }).waitFor();
 });
 
 await step("form fields are 16px+ so iOS doesn't zoom in", async () => {

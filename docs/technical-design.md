@@ -193,7 +193,8 @@ Upstash Redis, one JSON value per key:
 | `APP_URL` | Public URL wallets send people back to |
 | `PAYMENTS_MODE` | `interledger` for live test-network payments, `mock` for simulated |
 | `OP_CLIENT_WALLET_ADDRESS`, `OP_KEY_ID`, `OP_PRIVATE_KEY` | Sprout's Open Payments identity |
-| `AI_MODE`, `ANTHROPIC_API_KEY` | Optional AI coach |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | AI coach, lessons and brand explainers (Google Gemini) |
+| `TREASURY_WALLET`, `ADMIN_EMAILS` | Sprout's investing wallet and who may approve it |
 | `MARKET_MODE`, `FINNHUB_API_KEY` | Optional live market data |
 
 ## 10. Known limits
