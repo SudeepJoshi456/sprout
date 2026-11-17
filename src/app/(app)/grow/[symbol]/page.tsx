@@ -145,7 +145,7 @@ function Asset() {
           <Spot active={spot === "buy"}>
             <div className="flex gap-2">
               {brand && (
-                <Button variant="outline" size="lg" className="shrink-0 px-4" onClick={() => setGiftOpen(true)} disabled={!quote} aria-label={t("gift.button")}>
+                <Button variant="outline" size="lg" className="w-auto shrink-0 px-4" onClick={() => setGiftOpen(true)} disabled={!quote} aria-label={t("gift.button")}>
                   <GiftIcon className="size-5" aria-hidden />
                 </Button>
               )}
