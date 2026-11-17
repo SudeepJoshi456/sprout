@@ -50,8 +50,16 @@ export async function createAccount(email: string, passwordHash: string): Promis
   return record;
 }
 
-export function loadUser(id: string) {
-  return getJson<UserRecord>(userKey(id));
+export async function loadUser(id: string) {
+  const record = await getJson<UserRecord>(userKey(id));
+  return record ? upgrade(record) : null;
+}
+
+/** Fills in fields added after older accounts were created, so their screens don't break. */
+function upgrade(record: UserRecord): UserRecord {
+  const profile = record.state.profile;
+  if (!Array.isArray(profile.brands)) profile.brands = [];
+  return record;
 }
 
 export function saveUser(record: UserRecord) {
