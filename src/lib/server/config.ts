@@ -37,7 +37,7 @@ export const config = {
   /** Google Gemini, used for lessons, brand explainers and the coach. */
   ai: {
     apiKey: process.env.GEMINI_API_KEY,
-    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
     timeoutMs: Number(process.env.AI_TIMEOUT_MS || 25_000),
   },
 

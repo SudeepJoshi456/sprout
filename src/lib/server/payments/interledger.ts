@@ -159,6 +159,17 @@ export async function revokeGrant(g: OutgoingGrant) {
   await c.grant.cancel({ url: g.manageUrl, accessToken: g.accessToken }).catch(() => undefined);
 }
 
+/**
+ * The wallet still refuses after a fresh token: the approval was used up, expired or
+ * turned off in the wallet. Only reconnecting (a new approval) fixes that.
+ */
+function approvalEnded(err: unknown): never {
+  if (err instanceof OpenPaymentsClientError && (err.status === 401 || err.status === 403)) {
+    throw new PaymentUserError("approval_ended", "Your wallet's approval for Sprout has run out or was turned off. Reconnect your wallet in Wallet and try again. No money moved.");
+  }
+  throw err;
+}
+
 async function getWallet(url: string): Promise<WalletAddress> {
   const c = await client();
   try {
@@ -474,10 +485,10 @@ export const interledgerProvider: PaymentsProvider = {
               await persistGrant(grant);
             } catch (rotateErr) {
               const after = await getOutgoingGrant();
-              if (after.accessToken === grant.accessToken) throw rotateErr;
+              if (after.accessToken === grant.accessToken) approvalEnded(rotateErr);
               grant = after;
             }
-            return create(grant.accessToken);
+            return create(grant.accessToken).catch(approvalEnded);
           }
           throw err;
         }

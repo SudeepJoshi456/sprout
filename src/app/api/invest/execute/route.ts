@@ -62,7 +62,12 @@ export async function POST(req: Request) {
     }
 
     const label = order.side === "buy" ? `Bought ${formatMoney(order.amountCents)} of ${name}` : `Sold ${formatMoney(order.amountCents)} of ${name}`;
-    const result = await executeQuote(q, body.idempotencyKey, label, grants);
+    const result = await executeQuote(q, body.idempotencyKey, label, grants).catch((err) => {
+      if (order.side === "sell" && err instanceof ApiError && err.code === "approval_ended") {
+        throw new ApiError(503, "treasury_not_ready", "Selling is paused: Sprout's wallet needs to be approved again. Nothing was sold.");
+      }
+      throw err;
+    });
 
     // A concurrent request with the same key may have recorded it while we awaited.
     const raced = owned.trades.find((t) => t.id === body.idempotencyKey);

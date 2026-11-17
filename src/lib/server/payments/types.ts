@@ -51,7 +51,7 @@ export interface PaymentsProvider {
 /** Thrown for problems the user can fix (bad address, etc.). Never triggers fallback. */
 export class PaymentUserError extends Error {
   constructor(
-    public code: "invalid_address" | "wallet_not_found" | "unsupported_currency" | "approval_invalid",
+    public code: "invalid_address" | "wallet_not_found" | "unsupported_currency" | "approval_invalid" | "approval_ended",
     message: string,
   ) {
     super(message);
